@@ -1,0 +1,3 @@
+BasedOnStyle: WebKit
+SpaceAfterCStyleCast: true
+ColumnLimit: 100

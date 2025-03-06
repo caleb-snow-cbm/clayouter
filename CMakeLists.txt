@@ -4,8 +4,6 @@ project(clayouter)
 
 set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-g")
-
 include(FetchContent)
 FetchContent_Declare(
     raylib
@@ -25,12 +23,22 @@ target_link_libraries(clay
 
 add_executable(${PROJECT_NAME}
     src/main.c
+    src/clay_enum_names.c
+    src/ui_element.c
 )
 target_link_libraries(${PROJECT_NAME}
     clay
     raylib
+    asan
 )
 target_include_directories(${PROJECT_NAME}
     PRIVATE
     clay
+)
+target_compile_options(${PROJECT_NAME}
+    PRIVATE
+    -g
+    -Wall
+    -Wextra
+    -fsanitize=address
 )
