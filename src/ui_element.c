@@ -1,14 +1,12 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
+#include "clay_enum_names.h"
 #include "ui_element.h"
 
-void ui_element_unused(void)
-{
-    (void) CLAY__ELEMENT_DEFINITION_LATCH;
-}
+void ui_element_unused(void) { (void) CLAY__ELEMENT_DEFINITION_LATCH; }
 
 ui_element_t* ui_element_add(ui_element_t* parent, ui_element_type_t type)
 {
@@ -44,7 +42,7 @@ void ui_element_remove(ui_element_t* me)
         assert(me->num_children == 0);
         free(me->children);
     } else if (me->type == UI_ELEMENT_TEXT) {
-        free((char*)me->text.s.chars);
+        free((char*) me->text.s.chars);
         free(me->text_config);
     }
     me->parent->num_children--;
@@ -54,42 +52,6 @@ void ui_element_remove(ui_element_t* me)
 static uint8_t zero[sizeof(Clay_ElementDeclaration)] = { 0 };
 #define IS_NON_ZERO(region) memcmp(&region, zero, sizeof(region))
 
-const char* clay_sizing_macros[] = {
-    "FIT",
-    "GROW",
-    "PERCENT",
-    "FIXED",
-};
-
-const char* clay_x_align_macros[] = {
-    "LEFT",
-    "RIGHT",
-    "CENTER",
-};
-
-const char* clay_y_align_macros[] = {
-    "TOP",
-    "BOTTOM",
-    "CENTER",
-};
-
-const char* clay_layout_direction_macros[] = {
-    "LEFT_TO_RIGHT",
-    "TOP_TO_BOTTOM",
-};
-
-const char* Clay_TextElementConfigWrapMode_macros[] = {
-    "WORDS",
-    "NEWLINES",
-    "NONE"
-};
-
-const char* Clay_TextAlignment_macros[] = {
-    "LEFT",
-    "CENTER",
-    "RIGHT"
-};
-
 static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
 {
     fprintf(f, ".layout = { ");
@@ -97,22 +59,19 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
         fprintf(f, ".sizing = { ");
         if (IS_NON_ZERO(d->sizing.width)) {
             fprintf(f, ".width = CLAY_SIZING_%s(%.3f), ",
-                clay_sizing_macros[d->sizing.width.type],
+                CLAY_ENUM_VALUE_MACRO(Clay__SizingType, d->sizing.width.type),
                 d->sizing.width.size.percent);
         }
         if (IS_NON_ZERO(d->sizing.height)) {
             fprintf(f, ".height = CLAY_SIZING_%s(%.3f) ",
-                clay_sizing_macros[d->sizing.height.type],
+                CLAY_ENUM_VALUE_MACRO(Clay__SizingType, d->sizing.height.type),
                 d->sizing.height.size.percent);
         }
         fprintf(f, "}, ");
     }
     if (IS_NON_ZERO(d->padding)) {
-        fprintf(f, ".padding = (Clay_Padding) { %hu, %hu, %hu, %hu }, ",
-            d->padding.left,
-            d->padding.right,
-            d->padding.top,
-            d->padding.bottom);
+        fprintf(f, ".padding = (Clay_Padding) { %hu, %hu, %hu, %hu }, ", d->padding.left,
+            d->padding.right, d->padding.top, d->padding.bottom);
     }
     if (d->childGap) {
         fprintf(f, ".childGap = %hu, ", d->childGap);
@@ -120,23 +79,78 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
     if (IS_NON_ZERO(d->childAlignment)) {
         fprintf(f, ".childAlignment = { ");
         if (d->childAlignment.x) {
-            fprintf(f, ".x = CLAY_ALIGN_X_%s, ", clay_x_align_macros[d->childAlignment.x]);
+            fprintf(f, ".x = CLAY_ALIGN_X_%s, ",
+                CLAY_ENUM_VALUE_MACRO(Clay_LayoutAlignmentX, d->childAlignment.x));
         }
         if (d->childAlignment.y) {
-            fprintf(f, ".y = CLAY_ALIGN_Y_%s, ", clay_y_align_macros[d->childAlignment.y]);
+            fprintf(f, ".y = CLAY_ALIGN_Y_%s, ",
+                CLAY_ENUM_VALUE_MACRO(Clay_LayoutAlignmentY, d->childAlignment.y));
         }
         fprintf(f, "}, ");
     }
     if (d->layoutDirection) {
-        fprintf(f, ".layoutDirection = CLAY_%s, ", clay_layout_direction_macros[d->layoutDirection]);
+        fprintf(
+            f, ".layoutDirection = CLAY_%s, ", _Clay_LayoutDirection_Macros[d->layoutDirection]);
     }
     fprintf(f, "}, ");
 }
 
+static void dump_clay_floating(FILE* f, Clay_FloatingElementConfig* d)
+{
+    fprintf(f, ".floating = { ");
+    if (IS_NON_ZERO(d->offset)) {
+        fprintf(f, ".offset = {");
+        if (d->offset.x) {
+            fprintf(f, ".x = %.3f, ", d->offset.x);
+        }
+        if (d->offset.y) {
+            fprintf(f, ".y = %.3f ", d->offset.y);
+        }
+        fprintf(f, "}, ");
+    }
+    if (IS_NON_ZERO(d->expand)) {
+        fprintf(f, ".expand = { ");
+        if (d->expand.width)
+            fprintf(f, ".width = %.3f, ", d->expand.width);
+        if (d->expand.height)
+            fprintf(f, ".height = %.3f ", d->expand.height);
+        fprintf(f, "}, ");
+    }
+    // TODO: parentId
+    if (d->zIndex)
+        fprintf(f, ".zIndex = %hd, ", d->zIndex);
+    if (IS_NON_ZERO(d->attachPoints)) {
+        fprintf(f, ".attachPoints = { ");
+        if (d->attachPoints.element) {
+            fprintf(f, ".element = CLAY_ATTACH_POINT_%s, ",
+                CLAY_ENUM_VALUE_MACRO(Clay_FloatingAttachPointType, d->attachPoints.element));
+        }
+        if (d->attachPoints.parent) {
+            fprintf(f, ".element = CLAY_ATTACH_POINT_%s, ",
+                CLAY_ENUM_VALUE_MACRO(Clay_FloatingAttachPointType, d->attachPoints.parent));
+        }
+        fprintf(f, "}, ");
+    }
+    if (d->pointerCaptureMode) {
+        fprintf(f, ".pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_%s, ",
+            CLAY_ENUM_VALUE_MACRO(Clay_PointerCaptureMode, d->pointerCaptureMode));
+    }
+    if (d->attachTo) {
+        fprintf(f, ".attachTo = CLAY_ATTACH_TO_%s",
+            CLAY_ENUM_VALUE_MACRO(Clay_FloatingAttachToElement, d->attachTo));
+    }
+    fprintf(f, "}, ");
+}
+
+void dump_clay_border(FILE* f, Clay_BorderElementConfig* d)
+{
+
+}
+
 static void dump_clay_color(FILE* f, Clay_Color* c)
 {
-    fprintf(f, ".backgroundColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ",
-        c->r, c->g, c->b, c->a);
+    fprintf(
+        f, ".backgroundColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ", c->r, c->g, c->b, c->a);
 }
 
 static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d)
@@ -150,13 +164,29 @@ static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d)
     if (IS_NON_ZERO(d->backgroundColor)) {
         dump_clay_color(f, &d->backgroundColor);
     }
+    if (IS_NON_ZERO(d->floating)) {
+        dump_clay_floating(f, &d->floating);
+    }
+    // TODO: custom ?
+    if (IS_NON_ZERO(d->scroll)) {
+        fprintf(f, ".scroll = { ");
+        if (d->scroll.horizontal)
+            fprintf(f, ".horizontal = true, ");
+        if (d->scroll.vertical)
+            fprintf(f, ".vertical = true ");
+        fprintf(f, "}, ");
+    }
+
+    if (IS_NON_ZERO(d->border)) {
+        dump_clay_border(f, &d->border);
+    }
 }
 
 static void dump_clay_text(FILE* f, Clay_String s, Clay_TextElementConfig* c)
 {
-    fprintf(f, "CLAY_TEXT(CLAY_STRING(\"%.*s\"), CLAY_TEXT_CONFIG( {", s.length, s.chars);
-    fprintf(f, ".textColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ",
-        c->textColor.r, c->textColor.g, c->textColor.b, c->textColor.a);
+    fprintf(f, "CLAY_TEXT(CLAY_STRING(\"%.*s\"), CLAY_TEXT_CONFIG({ ", s.length, s.chars);
+    fprintf(f, ".textColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ", c->textColor.r,
+        c->textColor.g, c->textColor.b, c->textColor.a);
     if (c->fontId)
         fprintf(f, ".fontId = %hu, ", c->fontId);
     fprintf(f, ".fontSize = %hu, ", c->fontSize);
@@ -165,9 +195,11 @@ static void dump_clay_text(FILE* f, Clay_String s, Clay_TextElementConfig* c)
     if (c->lineHeight)
         fprintf(f, ".lineHeight = %hu, ", c->lineHeight);
     if (c->wrapMode)
-        fprintf(f, ".wrapMode = CLAY_TEXT_WRAP_%s, ", Clay_TextElementConfigWrapMode_macros[c->wrapMode]);
+        fprintf(f, ".wrapMode = CLAY_TEXT_WRAP_%s, ",
+            CLAY_ENUM_VALUE_MACRO(Clay_TextElementConfigWrapMode, c->wrapMode));
     if (c->textAlignment)
-        fprintf(f, ".textAlignment = CLAY_TEXT_ALIGN_%s, ", Clay_TextAlignment_macros[c->textAlignment]);
+        fprintf(f, ".textAlignment = CLAY_TEXT_ALIGN_%s, ",
+            CLAY_ENUM_VALUE_MACRO(Clay_TextAlignment, c->textAlignment));
     if (c->hashStringContents)
         fprintf(f, ".hashStringContents = true, ");
     fprintf(f, "}));\n");

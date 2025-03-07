@@ -1,18 +1,29 @@
+#include <stdint.h>
+
 #include "clay.h"
+#include "clay_enum_names.h"
 
 void unused(void)
 {
     (void) CLAY__ELEMENT_DEFINITION_LATCH;
 }
 
-#define ENUM_COUNT(x) const uint8_t _##x##_Count = sizeof(_##x##_Names) / sizeof(_##x##_Names[0])
+#define ENUM_INFO(x)                                                                               \
+    const enum_info_t _##x##_Info = { .name = &_##x##_Name,                                        \
+        .values = _##x##_Names,                                                                    \
+        .macros = _##x##_Macros,                                                                   \
+        .count = sizeof(_##x##_Names) / sizeof(_##x##_Names[0]) }
 
 const Clay_String _Clay_LayoutDirection_Name = CLAY_STRING("Layout Direction");
 const Clay_String _Clay_LayoutDirection_Names[] = {
     CLAY_STRING("Left to right"),
     CLAY_STRING("Top to bottom")
 };
-ENUM_COUNT(Clay_LayoutDirection);
+const char* _Clay_LayoutDirection_Macros[] = {
+    "LEFT_TO_RIGHT",
+    "TOP_TO_BOTTOM",
+};
+ENUM_INFO(Clay_LayoutDirection);
 
 const Clay_String _Clay_LayoutAlignmentX_Name = CLAY_STRING("X Alignment");
 const Clay_String _Clay_LayoutAlignmentX_Names[] = {
@@ -20,7 +31,12 @@ const Clay_String _Clay_LayoutAlignmentX_Names[] = {
     CLAY_STRING("Right"),
     CLAY_STRING("Center")
 };
-ENUM_COUNT(Clay_LayoutAlignmentX);
+const char* _Clay_LayoutAlignmentX_Macros[] = {
+    "LEFT",
+    "RIGHT",
+    "CENTER",
+};
+ENUM_INFO(Clay_LayoutAlignmentX);
 
 const Clay_String _Clay_LayoutAlignmentY_Name = CLAY_STRING("Y Alignment");
 const Clay_String _Clay_LayoutAlignmentY_Names[] = {
@@ -28,7 +44,12 @@ const Clay_String _Clay_LayoutAlignmentY_Names[] = {
     CLAY_STRING("Bottom"),
     CLAY_STRING("Center"),
 };
-ENUM_COUNT(Clay_LayoutAlignmentY);
+const char* _Clay_LayoutAlignmentY_Macros[] = {
+    "TOP",
+    "BOTTOM",
+    "CENTER",
+};
+ENUM_INFO(Clay_LayoutAlignmentY);
 
 const Clay_String _Clay__SizingType_Name = CLAY_STRING("Sizing");
 const Clay_String _Clay__SizingType_Names[] = {
@@ -37,7 +58,13 @@ const Clay_String _Clay__SizingType_Names[] = {
     CLAY_STRING("Percent"),
     CLAY_STRING("Fixed"),
 };
-ENUM_COUNT(Clay__SizingType);
+ENUM_INFO(Clay__SizingType);
+const char* _Clay__SizingType_Macros[] = {
+    "FIT",
+    "GROW",
+    "PERCENT",
+    "FIXED",
+};
 
 const Clay_String _Clay_TextElementConfigWrapMode_Name = CLAY_STRING("Wrap mode");
 const Clay_String _Clay_TextElementConfigWrapMode_Names[] = {
@@ -45,7 +72,12 @@ const Clay_String _Clay_TextElementConfigWrapMode_Names[] = {
     CLAY_STRING("Newlines"),
     CLAY_STRING("None"),
 };
-ENUM_COUNT(Clay_TextElementConfigWrapMode);
+const char* _Clay_TextElementConfigWrapMode_Macros[] = {
+    "WORDS",
+    "NEWLINES",
+    "NONE"
+};
+ENUM_INFO(Clay_TextElementConfigWrapMode);
 
 const Clay_String _Clay_TextAlignment_Name = CLAY_STRING("Alignment");
 const Clay_String _Clay_TextAlignment_Names[] = {
@@ -53,7 +85,12 @@ const Clay_String _Clay_TextAlignment_Names[] = {
     CLAY_STRING("Center"),
     CLAY_STRING("Right"),
 };
-ENUM_COUNT(Clay_TextAlignment);
+const char* _Clay_TextAlignment_Macros[] = {
+    "LEFT",
+    "CENTER",
+    "RIGHT"
+};
+ENUM_INFO(Clay_TextAlignment);
 
 const Clay_String _Clay_FloatingAttachPointType_Name = CLAY_STRING("Attach Point");
 const Clay_String _Clay_FloatingAttachPointType_Names[] = {
@@ -67,14 +104,29 @@ const Clay_String _Clay_FloatingAttachPointType_Names[] = {
     CLAY_STRING("Right Center"),
     CLAY_STRING("Right Bottom"),
 };
-ENUM_COUNT(Clay_FloatingAttachPointType);
+const char* _Clay_FloatingAttachPointType_Macros[] = {
+    "LEFT_TOP",
+    "LEFT_CENTER",
+    "LEFT_BOTTOM",
+    "CENTER_TOP",
+    "CENTER_CENTER",
+    "CENTER_BOTTOM",
+    "RIGHT_TOP",
+    "RIGHT_CENTER",
+    "RIGHT_BOTTOM",
+};
+ENUM_INFO(Clay_FloatingAttachPointType);
 
 const Clay_String _Clay_PointerCaptureMode_Name = CLAY_STRING("Capture Mode");
 const Clay_String _Clay_PointerCaptureMode_Names[] = {
     CLAY_STRING("Capture"),
     CLAY_STRING("Passthrough"),
 };
-ENUM_COUNT(Clay_PointerCaptureMode);
+const char* _Clay_PointerCaptureMode_Macros[] = {
+    "CAPTURE",
+    "PASSTHROUGH",
+};
+ENUM_INFO(Clay_PointerCaptureMode);
 
 const Clay_String _Clay_FloatingAttachToElement_Name = CLAY_STRING("Attach to");
 const Clay_String _Clay_FloatingAttachToElement_Names[] = {
@@ -83,4 +135,10 @@ const Clay_String _Clay_FloatingAttachToElement_Names[] = {
     CLAY_STRING("Element by ID"),
     CLAY_STRING("Root"),
 };
-ENUM_COUNT(Clay_FloatingAttachToElement);
+const char* _Clay_FloatingAttachToElement_Macros[] = {
+    "NONE",
+    "PARENT",
+    "ELEMENT_WITH_ID",
+    "ROOT"
+};
+ENUM_INFO(Clay_FloatingAttachToElement);

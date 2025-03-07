@@ -25,20 +25,22 @@ add_executable(${PROJECT_NAME}
     src/main.c
     src/clay_enum_names.c
     src/ui_element.c
+    src/components/clay_components.c
 )
 target_link_libraries(${PROJECT_NAME}
     clay
     raylib
-    asan
+    #asan
 )
 target_include_directories(${PROJECT_NAME}
     PRIVATE
     clay
+    src
 )
 target_compile_options(${PROJECT_NAME}
     PRIVATE
     -g
     -Wall
     -Wextra
-    -fsanitize=address
+    #-fsanitize=address
 )
