@@ -17,8 +17,9 @@ add_library(clay
     STATIC
     clay/clay_renderer_raylib.c
 )
-target_link_libraries(clay
-    raylib
+target_include_directories(clay
+    PRIVATE
+    ${raylib_SOURCE_DIR}/src
 )
 
 add_executable(${PROJECT_NAME}
@@ -30,7 +31,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     clay
     raylib
-    #asan
+    asan
 )
 target_include_directories(${PROJECT_NAME}
     PRIVATE
@@ -42,5 +43,5 @@ target_compile_options(${PROJECT_NAME}
     -g
     -Wall
     -Wextra
-    #-fsanitize=address
+    -fsanitize=address
 )

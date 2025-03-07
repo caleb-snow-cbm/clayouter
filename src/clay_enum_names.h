@@ -4,8 +4,8 @@
 #include "clay.h"
 
 typedef struct {
-    Clay_String* name;
-    Clay_String* values;
+    const Clay_String* name;
+    const Clay_String* values;
     const char** macros;
     uint8_t count;
 } enum_info_t;

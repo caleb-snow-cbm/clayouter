@@ -41,10 +41,13 @@ void cc_check_box(bool* value, Clay_String label);
 void cc_begin_layout(void);
 dstring_t* cc_get_selected_text_box(void);
 void cc_text_box_append(dstring_t* text_box, char c);
-void cc_selection_item(Clay_String name, Clay_String* values, size_t count, uint8_t* value_ptr);
+void cc_selection_item(Clay_String name, const Clay_String* values, size_t count, uint8_t* value_ptr);
 void cc_text_box(dstring_t* text, Clay_String label);
 void cc_tab_page(tab_page_t* page, void* user_data);
 void cc_initialize_tab_page(tab_page_t* page);
 void cc_text_box_advance(void);
+void cc_open_selection_menu(void);
+void cc_selection_menu(Clay_String label, const Clay_String* options, on_hover_cb_t* cbs, intptr_t* user_data, size_t count);
+void cc_close_selection_menu(void);
 
 #endif // COMPONENTS_CLAY_COMPONENTS_H

@@ -11,6 +11,7 @@ void ui_element_unused(void) { (void) CLAY__ELEMENT_DEFINITION_LATCH; }
 ui_element_t* ui_element_add(ui_element_t* parent, ui_element_type_t type)
 {
     ui_element_t* me = (ui_element_t*) malloc(sizeof(ui_element_t));
+    memset(me, 0, sizeof *me);
     me->type = type;
     if (type == UI_ELEMENT_DECLARATION) {
         me->ptr = (Clay_ElementDeclaration*) malloc(sizeof(Clay_ElementDeclaration));
@@ -20,7 +21,6 @@ ui_element_t* ui_element_add(ui_element_t* parent, ui_element_type_t type)
     } else {
         me->text_config = (Clay_TextElementConfig*) malloc(sizeof(Clay_TextElementConfig));
         memset(me->text_config, 0, sizeof(Clay_TextElementConfig));
-        memset(&me->text, 0, sizeof(me->text));
     }
     me->parent = parent;
 
@@ -144,16 +144,46 @@ static void dump_clay_floating(FILE* f, Clay_FloatingElementConfig* d)
 
 void dump_clay_border(FILE* f, Clay_BorderElementConfig* d)
 {
-
+    fprintf(f, ".border = { ");
+    if (IS_NON_ZERO(d->color)) {
+        fprintf(f, ".color = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ",
+            d->color.r, d->color.g, d->color.b, d->color.a);
+    }
+    if (IS_NON_ZERO(d->width)) {
+        fprintf(f, ".width = ");
+        if (d->width.left == d->width.right &&
+            d->width.top == d->width.bottom &&
+            d->width.left == d->width.top) {
+            if (d->width.betweenChildren == d->width.left) {
+                fprintf(f, "CLAY_BORDER_ALL(%hu), ", d->width.left);
+            } else if (d->width.betweenChildren == 0) {
+                fprintf(f, "CLAY_BORDER_OUTSIDE(%hu), ", d->width.left);
+            } else goto print_all;
+        } else {
+print_all:
+            fprintf(f, "{ .left = %hu, .right = %hu, .top = %hu, .bottom = %hu, .betweenChildren = %hu }, ",
+                d->width.left,
+                d->width.right,
+                d->width.top,
+                d->width.bottom,
+                d->width.betweenChildren);
+        }
+    }
+    fprintf(f, "}, ");
 }
 
-static void dump_clay_color(FILE* f, Clay_Color* c)
+static void dump_clay_color(FILE* f, on_hover_config_t* oh)
 {
-    fprintf(
-        f, ".backgroundColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ", c->r, c->g, c->b, c->a);
+    fprintf(f, ".backgroundColor = ");
+    if (oh->enabled) {
+        fprintf(f, "Clay_Hovered() ? (Clay_Color) { %.0f, %.0f, %.0f, %.0f } : ",
+            oh->hovered_color.r, oh->hovered_color.g, oh->hovered_color.b, oh->hovered_color.a);
+    }
+    fprintf(f, "(Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ",
+        oh->non_hovered_color.r, oh->non_hovered_color.g, oh->non_hovered_color.b, oh->non_hovered_color.a);
 }
 
-static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d)
+static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d, on_hover_config_t* oh)
 {
     if (d->id.stringId.length) {
         fprintf(f, ".id = CLAY_ID(\"%.*s\"), ", d->id.stringId.length, d->id.stringId.chars);
@@ -161,8 +191,8 @@ static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d)
     if (IS_NON_ZERO(d->layout)) {
         dump_clay_layout(f, &d->layout);
     }
-    if (IS_NON_ZERO(d->backgroundColor)) {
-        dump_clay_color(f, &d->backgroundColor);
+    if (IS_NON_ZERO(d->backgroundColor) || IS_NON_ZERO(oh->hovered_color)) {
+        dump_clay_color(f, oh);
     }
     if (IS_NON_ZERO(d->floating)) {
         dump_clay_floating(f, &d->floating);
@@ -177,7 +207,7 @@ static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d)
         fprintf(f, "}, ");
     }
 
-    if (IS_NON_ZERO(d->border)) {
+    if (IS_NON_ZERO(d->border.width)) {
         dump_clay_border(f, &d->border);
     }
 }
@@ -209,8 +239,11 @@ void dump_tree(FILE* f, ui_element_t* root, int depth)
 {
     if (root->type == UI_ELEMENT_DECLARATION) {
         fprintf(f, "CLAY({");
-        dump_clay_declaration(f, root->ptr);
+        dump_clay_declaration(f, root->ptr, &root->on_hover);
         fprintf(f, "}) {\n");
+        if (root->on_hover.enabled) {
+            fprintf(f, "Clay_OnHover(%.*s, 0); // TODO: implement\n", root->on_hover.callback.length, root->on_hover.callback.chars);
+        }
         for (size_t i = 0; i < root->num_children; ++i) {
             dump_tree(f, root->children[i], depth + 1);
         }

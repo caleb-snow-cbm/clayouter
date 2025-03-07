@@ -13,9 +13,21 @@ typedef struct {
     dstring_t** text_boxes;
 } text_box_tab_list_t;
 
+typedef struct {
+    on_hover_cb_t cb;
+    intptr_t user_data;
+} sm_item_t;
+
+typedef struct {
+    size_t capacity;
+    sm_item_t* items;
+} sm_items_t;
+
 static dstring_t* selected_text_box;
 static uint8_t* selection_menu_item;
 static text_box_tab_list_t text_boxes;
+static sm_items_t sm_items;
+static bool sm_visible;
 
 static Clay_TextElementConfig default_text_types[] = {
     [TT_BODY] = {
@@ -74,7 +86,7 @@ static void select_text_box(Clay_ElementId id, Clay_PointerData data, intptr_t u
     }
 }
 
-static void open_selection_menu(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void open_mini_selection_menu(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -82,13 +94,31 @@ static void open_selection_menu(Clay_ElementId id, Clay_PointerData data, intptr
     }
 }
 
-static void selection_menu_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void mini_selection_menu_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     assert(selection_menu_item);
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         *selection_menu_item = (uint8_t) user_data;
         selection_menu_item = NULL;
+    }
+}
+
+static void selection_menu_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        sm_item_t info = sm_items.items[user_data];
+        sm_visible = false;
+        info.cb(id, data, info.user_data);
+    }
+}
+
+static void selection_menu_close_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    (void) user_data;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        sm_visible = false;
     }
 }
 
@@ -152,7 +182,7 @@ void cc_text_box(dstring_t* text, Clay_String label)
         })
         {
             Clay_OnHover(select_text_box, (intptr_t) text);
-            CLAY_TEXT(text->s, &theme.text_types[TT_HEADER]);
+            CLAY_TEXT(text->s, &theme.text_types[TT_BODY]);
         }
     }
 }
@@ -191,7 +221,7 @@ void cc_text_box_append(dstring_t* text, char c)
 
 dstring_t* cc_get_selected_text_box(void) { return selected_text_box; }
 
-static void selection_menu(Clay_String* options, size_t count)
+static void selection_menu(const Clay_String* options, size_t count)
 {
     CLAY({ .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM },
         .cornerRadius = DEFAULT_CORNER_RADIUS,
@@ -200,17 +230,17 @@ static void selection_menu(Clay_String* options, size_t count)
         .border = { .color = theme.highlight, .width = CLAY_BORDER_ALL(1) } })
     {
         for (size_t i = 0; i < count; i++) {
-            cc_button(options[i], selection_menu_callback, (intptr_t) i);
+            cc_button(options[i], mini_selection_menu_callback, (intptr_t) i);
         }
     }
 }
 
-void cc_selection_item(Clay_String name, Clay_String* values, size_t count, uint8_t* value_ptr)
+void cc_selection_item(Clay_String name, const Clay_String* values, size_t count, uint8_t* value_ptr)
 {
     CLAY({ .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM } })
     {
         CLAY_TEXT(name, &theme.text_types[TT_BODY]);
-        cc_button(values[*value_ptr], open_selection_menu, (intptr_t) value_ptr);
+        cc_button(values[*value_ptr], open_mini_selection_menu, (intptr_t) value_ptr);
         if (selection_menu_item == value_ptr) {
             selection_menu(values, count);
         }
@@ -295,4 +325,59 @@ void cc_check_box(bool* value, Clay_String label)
             });
         }
     }
+}
+
+void cc_open_selection_menu(void)
+{
+    sm_visible = true; // only supports 1 at a time...
+}
+
+void cc_selection_menu(Clay_String label,
+                       const Clay_String* options,
+                       on_hover_cb_t* cbs,
+                       intptr_t* user_data,
+                       size_t count)
+{
+    if (!sm_visible)
+        return;
+    CLAY({
+        .id = CLAY_ID("selection_menu"),
+        .layout = { .padding = CLAY_PADDING_ALL(8), .childGap = 8, .layoutDirection = CLAY_TOP_TO_BOTTOM },
+        .backgroundColor = theme.background,
+        .cornerRadius = DEFAULT_CORNER_RADIUS,
+        .floating = {
+            .attachPoints = {
+                .element = CLAY_ATTACH_POINT_CENTER_CENTER,
+                .parent = CLAY_ATTACH_POINT_CENTER_CENTER,
+            },
+            .attachTo = CLAY_ATTACH_TO_ROOT,
+        },
+        .border = { .color = theme.highlight, .width = CLAY_BORDER_OUTSIDE(1) }
+    })
+    {
+        CLAY_TEXT(label, &theme.text_types[TT_TITLE]);
+        CLAY({
+            .layout = { .childGap = 8,
+                        .childAlignment = { .x = CLAY_ALIGN_X_CENTER },
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM, },
+            .scroll = { .vertical = true, }
+        })
+        {
+            for (size_t i = 0; i < count; ++i) {
+                if (i == sm_items.capacity) {
+                    sm_items.capacity += 16;
+                    sm_items.items = realloc(sm_items.items, sizeof(sm_item_t) * sm_items.capacity);
+                }
+                sm_items.items[i].cb = cbs[i];
+                sm_items.items[i].user_data = user_data[i];
+                cc_button(options[i], selection_menu_callback, i);
+            }
+        }
+        cc_button(CLAY_STRING("Close"), selection_menu_close_callback, 0);
+    }
+}
+
+void cc_close_selection_menu(void)
+{
+    sm_visible = false;
 }

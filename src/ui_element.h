@@ -12,6 +12,13 @@ typedef enum {
     UI_ELEMENT_TEXT,
 } ui_element_type_t;
 
+typedef struct {
+    bool enabled;
+    Clay_String callback;
+    Clay_Color hovered_color;
+    Clay_Color non_hovered_color;
+} on_hover_config_t;
+
 typedef struct ui_element_s {
     struct ui_element_s* parent;
     union {
@@ -19,6 +26,7 @@ typedef struct ui_element_s {
             Clay_ElementDeclaration* ptr;
             struct ui_element_s** children;
             size_t num_children;
+            on_hover_config_t on_hover;
         };
         struct {
             dstring_t text;

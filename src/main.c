@@ -80,6 +80,12 @@ typedef struct {
 } border_properties_t;
 
 typedef struct {
+    bool enable;
+    color_string_t color;
+    dstring_t callback;
+} on_hover_properties_t;
+
+typedef struct {
     dstring_t text;
     color_string_t text_color;
     dstring_t font_id;
@@ -96,6 +102,7 @@ typedef struct {
     layout_properties_t layout;
     floating_properties_t floating;
     border_properties_t border;
+    on_hover_properties_t on_hover;
 } declaration_properties_t;
 
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
@@ -197,6 +204,16 @@ void dynamic_string_copy(dstring_t* dst, Clay_String src)
     }
     memcpy((char*) dst->s.chars, src.chars, src.length);
     dst->s.length = src.length;
+}
+
+void clay_string_copy(Clay_String* dst, dstring_t src)
+{
+    if (src.s.length) {
+        void* tmp = realloc((char*) dst->chars, src.s.length);
+        dst->chars = tmp;
+        memcpy((char*) dst->chars, src.s.chars, src.s.length);
+        dst->length = src.s.length;
+    }
 }
 
 void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
@@ -310,6 +327,14 @@ static void load_border(border_properties_t* dst, const Clay_BorderElementConfig
     load_uint(&dst->between_children, src->width.betweenChildren);
 }
 
+static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* src)
+{
+    load_color(&dst->color, src->hovered_color);
+    dst->enable = src->enabled;
+    if (src->callback.length)
+        dynamic_string_copy(&dst->callback, src->callback);
+}
+
 Clay_Color parse_color(const color_string_t* c)
 {
     Clay_Color ret = { 0, 0, 0, 255 };
@@ -400,6 +425,13 @@ Clay_BorderElementConfig parse_border(const border_properties_t* src)
     return ret;
 }
 
+void parse_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
+{
+    clay_string_copy(&dst->callback, src->callback);
+    dst->enabled = src->enable;
+    dst->hovered_color = parse_color(&src->color);
+}
+
 void save_properties(void)
 {
     if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
@@ -423,6 +455,8 @@ void save_properties(void)
         element->scroll.horizontal = selected_d_properties.general.scroll_horizontal;
         element->scroll.vertical = selected_d_properties.general.scroll_vertical;
         element->border = parse_border(&selected_d_properties.border);
+        parse_on_hover(&selected_ui_element->on_hover, &selected_d_properties.on_hover);
+        selected_ui_element->on_hover.non_hovered_color = element->backgroundColor;
     } else if (selected_ui_element->type == UI_ELEMENT_TEXT) {
         dynamic_string_copy(&selected_ui_element->text, selected_t_properties.text.s);
         *selected_ui_element->text_config = parse_text_config(&selected_t_properties);
@@ -450,6 +484,7 @@ void load_properties(void)
         selected_d_properties.general.scroll_horizontal = element->scroll.horizontal;
         selected_d_properties.general.scroll_vertical = element->scroll.vertical;
         load_border(&selected_d_properties.border, &element->border);
+        load_on_hover(&selected_d_properties.on_hover, &selected_ui_element->on_hover);
     } else if (selected_ui_element->type == UI_ELEMENT_TEXT) {
     }
 }
@@ -480,8 +515,10 @@ void open_parent(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 
 void open_children(Clay_ElementId id, Clay_PointerData data, intptr_t user_data) {
     (void) id;
-    (void) data;
     (void) user_data;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        cc_open_selection_menu();
+    }
 }
 
 void general_properties_layout(void* user_data)
@@ -581,6 +618,21 @@ void border_properties_layout(void* user_data)
     cc_text_box(&p->between_children, CLAY_STRING("Between children"));
 }
 
+void on_hover_properties_layout(void* user_data)
+{
+    on_hover_properties_t* p = &((declaration_properties_t*)user_data)->on_hover;
+    cc_check_box(&p->enable, CLAY_STRING("Enable"));
+    CLAY_TEXT(CLAY_STRING("Hover color"), HEADER_TEXT);
+    CLAY({})
+    {
+        cc_text_box(&p->color.r, CLAY_STRING("R"));
+        cc_text_box(&p->color.g, CLAY_STRING("G"));
+        cc_text_box(&p->color.b, CLAY_STRING("B"));
+        cc_text_box(&p->color.a, CLAY_STRING("A"));
+    }
+    cc_text_box(&p->callback, CLAY_STRING("Callback function"));
+}
+
 void text_properties_layout(text_properties_t* p)
 {
     CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
@@ -607,7 +659,7 @@ void text_properties_layout(text_properties_t* p)
     }
 }
 
-void properies_window(void)
+void properties_window(void)
 {
     CLAY({
         .id = CLAY_ID("properties window"),
@@ -632,12 +684,14 @@ void properies_window(void)
                 CLAY_STRING("Layout"),
                 CLAY_STRING("Floating"),
                 CLAY_STRING("Border"),
+                CLAY_STRING("On Hover"),
             };
             static layout_fn_t tab_funcs[] = {
                 general_properties_layout,
                 layout_properties_layout,
                 floating_properties_layout,
                 border_properties_layout,
+                on_hover_properties_layout,
             };
             static selected_tab_info_t infos[numberof(tab_names)];
 
@@ -659,7 +713,7 @@ void properies_window(void)
             text_properties_layout(&selected_t_properties);
         }
 
-        CLAY({ .layout.sizing.width = CLAY_SIZING_GROW(0) })
+        CLAY({ .layout = { .sizing.width = CLAY_SIZING_GROW(0), .childGap = 4 }})
         {
             cc_button(CLAY_STRING("Close"), close_properties_window, 0);
 
@@ -669,6 +723,45 @@ void properies_window(void)
             // cc_button(CLAY_STRING("Save as Default"), save_default, 0);
         }
     }
+}
+
+void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        selected_ui_element = (ui_element_t*) user_data;
+        load_properties();
+    }
+}
+
+void show_children(ui_element_t* e)
+{
+    static size_t child_capacity = 0;
+    static Clay_String* child_names;
+    static on_hover_cb_t* callbacks;
+    static intptr_t* user_data;
+    if (e->type == UI_ELEMENT_TEXT) return;
+    if (e->num_children > child_capacity) {
+        size_t old_cap = child_capacity;
+        child_capacity = e->num_children;
+        child_names = realloc(child_names, sizeof(Clay_String) * child_capacity);
+        memset(child_names + old_cap, 0, sizeof(Clay_String) * (child_capacity - old_cap));
+        callbacks = realloc(callbacks, sizeof(on_hover_cb_t) * child_capacity);
+        user_data = realloc(user_data, sizeof(intptr_t) * child_capacity);
+    }
+    for (size_t i = 0; i < e->num_children; ++i) {
+        if (child_names[i].length == 0) {
+            char* tmp = (char*) malloc(64);
+            child_names[i].chars = tmp;
+        }
+        callbacks[i] = select_child_callback;
+        user_data[i] = (intptr_t) e->children[i];
+    }
+    for (size_t i = 0; i < e->num_children; ++i) {
+        // assumes 2 types of elements
+        child_names[i].length = snprintf((char*) child_names[i].chars, 64, "Child %zu, %s", i, e->children[i]->type ? "Text" : "Element");
+    }
+    cc_selection_menu(CLAY_STRING("Child elements"), child_names, callbacks, user_data, e->num_children);
 }
 
 void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
@@ -715,7 +808,12 @@ void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        dump_tree(stdout, &root, 0);
+        FILE* f = fopen("output.c", "w");
+        fprintf(f, "#include \"clay.h\"\n\n");
+        fprintf(f, "void layout_ui(void) {\n");
+        dump_tree(f, &root, 0);
+        fprintf(f, "}\n\n");
+        fclose(f);
     }
 }
 
@@ -740,6 +838,11 @@ void configure_element(ui_element_t* me)
     }
     if (me->type == UI_ELEMENT_DECLARATION) {
         Clay__OpenElement();
+        if (me->on_hover.enabled && Clay_Hovered()) {
+            me->ptr->backgroundColor = me->on_hover.hovered_color;
+        } else {
+            me->ptr->backgroundColor = me->on_hover.non_hovered_color;
+        }
         Clay__ConfigureOpenElement(*me->ptr);
         Clay_OnHover(hover_callback, (intptr_t) me);
         if (dropdown_parent == me) {
@@ -815,9 +918,10 @@ int main(void)
 
         Clay_BeginLayout();
         if (selected_ui_element) {
-            properies_window();
+            properties_window();
             if (key || left_mouse || right_mouse)
                 save_properties();
+            show_children(selected_ui_element);
         }
         configure_element(&root);
 
@@ -833,6 +937,7 @@ int main(void)
     for (size_t i = 0; i < theme->text_types_count; ++i) {
         UnloadFont(fonts[i]);
     }
+    free(fonts);
     CloseWindow();
     free(clay_memory);
 }
