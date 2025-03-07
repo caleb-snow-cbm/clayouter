@@ -49,5 +49,6 @@ void cc_text_box_advance(void);
 void cc_open_selection_menu(void);
 void cc_selection_menu(Clay_String label, const Clay_String* options, on_hover_cb_t* cbs, intptr_t* user_data, size_t count);
 void cc_close_selection_menu(void);
+void cc_color_picker(uint32_t parent_id, color_string_t* color);
 
 #endif // COMPONENTS_CLAY_COMPONENTS_H

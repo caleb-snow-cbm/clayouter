@@ -10,4 +10,11 @@ typedef struct {
     Clay_String s;
 } dstring_t;
 
+typedef struct {
+    dstring_t r;
+    dstring_t g;
+    dstring_t b;
+    dstring_t a;
+} color_string_t;
+
 #endif // TYPES_H

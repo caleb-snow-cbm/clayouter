@@ -21,13 +21,6 @@
 #define numberof(x) (sizeof(x) / sizeof(*x))
 
 typedef struct {
-    dstring_t r;
-    dstring_t g;
-    dstring_t b;
-    dstring_t a;
-} color_string_t;
-
-typedef struct {
     dstring_t id;
     color_string_t background_color;
     dstring_t corner_radius_top_left;

@@ -4,6 +4,7 @@
 #include "clay.h"
 #include "clay_components.h"
 #include "types.h"
+#include "clay_renderer_raylib.h"
 
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
 
@@ -48,11 +49,11 @@ static Clay_TextElementConfig default_text_types[] = {
 };
 
 static theme_t theme = {
-    .background = (Clay_Color) { 22, 22, 22, 255 },
-    .clickable = (Clay_Color) { 55, 55, 55, 255 },
-    .hovered = (Clay_Color) { 55, 55, 150, 255 },
-    .selected = (Clay_Color) { 55, 100, 200, 255 },
-    .highlight = (Clay_Color) { 255, 255, 255, 255 },
+    .background = (Clay_Color) {  22,  22,  22, 255 },
+    .clickable  = (Clay_Color) {  55,  55,  55, 255 },
+    .hovered    = (Clay_Color) {  55,  55, 150, 255 },
+    .selected   = (Clay_Color) {  55, 100, 200, 255 },
+    .highlight  = (Clay_Color) { 255, 255, 255, 255 },
     .text_types = default_text_types,
     .text_types_count = sizeof(default_text_types) / sizeof(*default_text_types),
 };
@@ -380,4 +381,36 @@ void cc_selection_menu(Clay_String label,
 void cc_close_selection_menu(void)
 {
     sm_visible = false;
+}
+
+void cc_color_picker(uint32_t parent_id, Clay_ImageElementConfig im, color_string_t* color)
+{
+    CLAY({ .id = CLAY_ID("Color picker"),
+        .layout = { .sizing = { .width = CLAY_SIZING_FIT(400), .height = CLAY_SIZING_FIT(400) } },
+        .backgroundColor = theme.background,
+        .floating = { .parentId = parent_id, .attachTo = CLAY_ATTACH_TO_ELEMENT_WITH_ID } })
+    {
+        CLAY({ .image = im }) {
+            
+        }
+        CLAY({
+            .layout = { .sizing = { .height = CLAY_SIZING_GROW(0) },
+                .padding = CLAY_PADDING_ALL(8),
+                .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER } },
+        }) {
+            CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIXED(10), .height = CLAY_SIZING_GROW(0) },
+                               .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER } },
+                   .backgroundColor = theme.clickable,
+            }) {
+                CLAY({
+                    .layout = { .sizing
+                        = { .width = CLAY_SIZING_FIXED(20), .height = CLAY_SIZING_FIXED(20) } },
+                    .backgroundColor = Clay_Hovered() ? theme.hovered : theme.clickable,
+                    .cornerRadius = CLAY_CORNER_RADIUS(10),
+                })
+                {
+                }
+            }
+        }
+    }
 }
