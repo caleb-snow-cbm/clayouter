@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #include "clay.h"
-#include "types.h"
+#include "components/clay_components.h"
 
 typedef enum {
     UI_ELEMENT_DECLARATION,

@@ -1,15 +1,26 @@
-#ifndef COMPONENTS_CLAY_COMPONENTS_H
-#define COMPONENTS_CLAY_COMPONENTS_H
+#ifndef CLAY_COMPONENTS_H
+#define CLAY_COMPONENTS_H
 
 #include <stdbool.h>
 
 #include "clay.h"
-#include "types.h"
 
 typedef void (*layout_fn_t)(void*);
 typedef void (*on_hover_cb_t)(Clay_ElementId id, Clay_PointerData data, intptr_t user_data);
 
 typedef enum { TT_BODY, TT_HEADER, TT_TITLE } text_types_t;
+
+typedef struct {
+    int32_t capacity;
+    Clay_String s;
+} dstring_t;
+
+typedef struct {
+    dstring_t r;
+    dstring_t g;
+    dstring_t b;
+    dstring_t a;
+} color_string_t;
 
 typedef struct {
     Clay_Color background;
@@ -49,6 +60,7 @@ void cc_text_box_advance(void);
 void cc_open_selection_menu(void);
 void cc_selection_menu(Clay_String label, const Clay_String* options, on_hover_cb_t* cbs, intptr_t* user_data, size_t count);
 void cc_close_selection_menu(void);
-void cc_color_picker(uint32_t parent_id, color_string_t* color);
+void cc_color_selector(Clay_ImageElementConfig im, color_string_t* color);
+Clay_Color cc_parse_color(const color_string_t* c);
 
-#endif // COMPONENTS_CLAY_COMPONENTS_H
+#endif // CLAY_COMPONENTS_H

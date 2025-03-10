@@ -12,7 +12,6 @@
 #include "clay_enum_names.h"
 #include "clay_renderer_raylib.h"
 #include "components/clay_components.h"
-#include "types.h"
 #include "ui_element.h"
 
 #define WINDOW_WIDTH (1024)
@@ -111,6 +110,7 @@ static declaration_properties_t selected_d_properties;
 static text_properties_t selected_t_properties;
 static ui_element_t* selected_ui_element = NULL;
 ui_element_t root;
+static Clay_ImageElementConfig color_picker_im;
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -253,19 +253,19 @@ Clay_LayoutConfig parse_layout(layout_properties_t* layout)
 static void load_float(dstring_t* dst, float src)
 {
     if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, dst->capacity, "%3.3f", src);
+        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%3.1f", src);
 }
 
 static void load_uint(dstring_t* dst, uint64_t src)
 {
     if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, dst->capacity, "%" PRIu64, src);
+        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%" PRIu64, src);
 }
 
 static void load_int(dstring_t* dst, int64_t src)
 {
     if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, dst->capacity, "%" PRId64, src);
+        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%" PRId64, src);
 }
 
 static void load_color(color_string_t* dst, Clay_Color src)
@@ -328,24 +328,6 @@ static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* s
         dynamic_string_copy(&dst->callback, src->callback);
 }
 
-Clay_Color parse_color(const color_string_t* c)
-{
-    Clay_Color ret = { 0, 0, 0, 255 };
-    if (c->r.s.length) {
-        ret.r = strtof(c->r.s.chars, NULL);
-    }
-    if (c->g.s.length) {
-        ret.g = strtof(c->g.s.chars, NULL);
-    }
-    if (c->b.s.length) {
-        ret.b = strtof(c->b.s.chars, NULL);
-    }
-    if (c->a.s.length) {
-        ret.a = strtof(c->a.s.chars, NULL);
-    }
-    return ret;
-}
-
 Clay_TextElementConfig parse_text_config(const text_properties_t* src)
 {
     Clay_TextElementConfig ret = { 0 };
@@ -357,7 +339,7 @@ Clay_TextElementConfig parse_text_config(const text_properties_t* src)
         ret.letterSpacing = (uint16_t) strtoul(src->letter_spacing.s.chars, NULL, 0);
     if (src->line_height.s.length)
         ret.lineHeight = (uint16_t) strtoul(src->line_height.s.chars, NULL, 0);
-    ret.textColor = parse_color(&src->text_color);
+    ret.textColor = cc_parse_color(&src->text_color);
     ret.wrapMode = src->wrap_mode;
     ret.textAlignment = src->text_alignment;
     ret.hashStringContents = src->hash_string_contents;
@@ -368,13 +350,13 @@ Clay_CornerRadius parse_corner_radius(const general_properties_t* src)
 {
     Clay_CornerRadius ret = { 0 };
     if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtoul(src->corner_radius_top_left.s.chars, NULL, 0);
+        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
     if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtoul(src->corner_radius_top_left.s.chars, NULL, 0);
+        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
     if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtoul(src->corner_radius_top_left.s.chars, NULL, 0);
+        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
     if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtoul(src->corner_radius_top_left.s.chars, NULL, 0);
+        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
     return ret;
 }
 
@@ -403,7 +385,7 @@ Clay_FloatingElementConfig parse_floating(const floating_properties_t* src)
 Clay_BorderElementConfig parse_border(const border_properties_t* src)
 {
     Clay_BorderElementConfig ret = { 0 };
-    ret.color = parse_color(&src->color);
+    ret.color = cc_parse_color(&src->color);
     if (src->left.s.length)
         ret.width.left = (uint16_t) strtoul(src->left.s.chars, NULL, 0);
     if (src->right.s.length)
@@ -422,7 +404,7 @@ void parse_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
 {
     clay_string_copy(&dst->callback, src->callback);
     dst->enabled = src->enable;
-    dst->hovered_color = parse_color(&src->color);
+    dst->hovered_color = cc_parse_color(&src->color);
 }
 
 void save_properties(void)
@@ -435,14 +417,14 @@ void save_properties(void)
             && previous_length != selected_d_properties.general.id.s.length) {
             char* before = (char*) element->id.stringId.chars;
             element->id = Clay__HashString(selected_d_properties.general.id.s, 0, 0);
-            void* tmp = realloc(before, element->id.stringId.length);
+            void* tmp = realloc(before, (size_t) element->id.stringId.length);
             element->id.stringId.chars = tmp;
             memcpy((char*) element->id.stringId.chars, selected_d_properties.general.id.s.chars,
-                element->id.stringId.length);
+                (size_t) element->id.stringId.length);
             previous_length = selected_d_properties.general.id.s.length;
         }
         element->layout = parse_layout(&selected_d_properties.layout);
-        element->backgroundColor = parse_color(&selected_d_properties.general.background_color);
+        element->backgroundColor = cc_parse_color(&selected_d_properties.general.background_color);
         element->cornerRadius = parse_corner_radius(&selected_d_properties.general);
         element->floating = parse_floating(&selected_d_properties.floating);
         element->scroll.horizontal = selected_d_properties.general.scroll_horizontal;
@@ -519,13 +501,7 @@ void general_properties_layout(void* user_data)
     general_properties_t* p = &((declaration_properties_t*) user_data)->general;
     cc_text_box(&p->id, CLAY_STRING("ID"));
     CLAY_TEXT(CLAY_STRING("Background Color"), HEADER_TEXT);
-    CLAY({})
-    {
-        cc_text_box(&p->background_color.r, CLAY_STRING("R"));
-        cc_text_box(&p->background_color.g, CLAY_STRING("G"));
-        cc_text_box(&p->background_color.b, CLAY_STRING("B"));
-        cc_text_box(&p->background_color.a, CLAY_STRING("A"));
-    }
+    cc_color_selector(color_picker_im, &p->background_color);
     CLAY_TEXT(CLAY_STRING("Corner Radius"), HEADER_TEXT);
     CLAY({})
     {
@@ -596,13 +572,7 @@ void border_properties_layout(void* user_data)
 {
     border_properties_t* p = &((declaration_properties_t*) user_data)->border;
     CLAY_TEXT(CLAY_STRING("Color"), HEADER_TEXT);
-    CLAY({})
-    {
-        cc_text_box(&p->color.r, CLAY_STRING("R"));
-        cc_text_box(&p->color.g, CLAY_STRING("G"));
-        cc_text_box(&p->color.b, CLAY_STRING("B"));
-        cc_text_box(&p->color.a, CLAY_STRING("A"));
-    }
+    cc_color_selector(color_picker_im, &p->color);
     CLAY_TEXT(CLAY_STRING("Width"), HEADER_TEXT);
     cc_text_box(&p->left, CLAY_STRING("Left"));
     cc_text_box(&p->right, CLAY_STRING("Right"));
@@ -616,13 +586,7 @@ void on_hover_properties_layout(void* user_data)
     on_hover_properties_t* p = &((declaration_properties_t*)user_data)->on_hover;
     cc_check_box(&p->enable, CLAY_STRING("Enable"));
     CLAY_TEXT(CLAY_STRING("Hover color"), HEADER_TEXT);
-    CLAY({})
-    {
-        cc_text_box(&p->color.r, CLAY_STRING("R"));
-        cc_text_box(&p->color.g, CLAY_STRING("G"));
-        cc_text_box(&p->color.b, CLAY_STRING("B"));
-        cc_text_box(&p->color.a, CLAY_STRING("A"));
-    }
+    cc_color_selector(color_picker_im, &p->color);
     cc_text_box(&p->callback, CLAY_STRING("Callback function"));
 }
 
@@ -635,13 +599,7 @@ void text_properties_layout(text_properties_t* p)
         .scroll.vertical = true })
     {
         cc_text_box(&p->text, CLAY_STRING("Text"));
-        CLAY({})
-        {
-            cc_text_box(&p->text_color.r, CLAY_STRING("R"));
-            cc_text_box(&p->text_color.g, CLAY_STRING("G"));
-            cc_text_box(&p->text_color.b, CLAY_STRING("B"));
-            cc_text_box(&p->text_color.a, CLAY_STRING("A"));
-        }
+        cc_color_selector(color_picker_im, &p->text_color);
         cc_text_box(&p->font_id, CLAY_STRING("Font ID"));
         cc_text_box(&p->font_size, CLAY_STRING("Font size"));
         cc_text_box(&p->letter_spacing, CLAY_STRING("Letter spacing"));
@@ -656,8 +614,8 @@ void properties_window(void)
 {
     CLAY({
         .id = CLAY_ID("properties window"),
-        .layout = { .sizing = { .width = CLAY_SIZING_FIXED(GetScreenWidth() / 2),
-                        .height = CLAY_SIZING_FIXED(GetScreenHeight() / 2) },
+        .layout = { .sizing = { .width = CLAY_SIZING_FIXED((float) GetScreenWidth() / 2),
+                        .height = CLAY_SIZING_FIXED((float) GetScreenHeight() / 2) },
             .padding = CLAY_PADDING_ALL(8),
             .childGap = 4,
             .layoutDirection = CLAY_TOP_TO_BOTTOM },
@@ -852,10 +810,10 @@ void configure_element(ui_element_t* me)
 
 int main(void)
 {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Clayouter");
     SetTargetFPS(60);
-    uint64_t clay_memory_size = Clay_MinMemorySize();
+    uint32_t clay_memory_size = Clay_MinMemorySize();
     void* clay_memory = malloc(clay_memory_size);
     Clay_Arena clay_arena = Clay_CreateArenaWithCapacityAndMemory(clay_memory_size, clay_memory);
 
@@ -872,9 +830,11 @@ int main(void)
 
     root.ptr = (Clay_ElementDeclaration*) malloc(sizeof(Clay_ElementDeclaration));
     *root.ptr = (Clay_ElementDeclaration) {
-        .id = CLAY_ID("root"),
         .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) } },
     };
+    root.ptr->id.stringId.chars = malloc(sizeof("root"));
+    strcpy((char*) root.ptr->id.stringId.chars, "root");
+    root.ptr->id.stringId.length = sizeof("root") - 1;
 
     dropdown_menu.id = CLAY_ID("dropdown");
 
@@ -887,11 +847,16 @@ int main(void)
     dropdown_menu.floating.zIndex = INT16_MAX;
     dropdown_menu.border.color = theme->highlight;
     dropdown_menu.border.width = (Clay_BorderWidth) CLAY_BORDER_OUTSIDE(1);
+    Texture2D color_picker_texture = LoadTexture("resources/color_picker.png");
+    color_picker_im.imageData = &color_picker_texture;
+    color_picker_im.sourceDimensions.width = (float) color_picker_texture.width;
+    color_picker_im.sourceDimensions.height = (float) color_picker_texture.height;
 
     while (!WindowShouldClose()) {
         bool left_mouse = IsMouseButtonDown(0);
         bool right_mouse = IsMouseButtonDown(1);
-        Clay_SetLayoutDimensions((Clay_Dimensions) { GetScreenWidth(), GetScreenHeight() });
+        Clay_SetLayoutDimensions((Clay_Dimensions) { (float) GetScreenWidth(),
+                                                     (float) GetScreenHeight() });
         Clay_SetPointerStateEx(
             RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMousePosition()), left_mouse, right_mouse);
         Clay_UpdateScrollContainers(
