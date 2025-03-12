@@ -89,6 +89,7 @@
 #define CLAY_STRING_CONST(string) { .length = CLAY__STRING_LENGTH(CLAY__ENSURE_STRING_LITERAL(string)), .chars = (string) }
 
 static uint8_t CLAY__ELEMENT_DEFINITION_LATCH;
+static inline void Clay__MarkLatchAsUsed(void) { (void) CLAY__ELEMENT_DEFINITION_LATCH; }
 
 // Publicly visible layout element macros -----------------------------------------------------
 

@@ -13,6 +13,8 @@
 #include "clay_renderer_raylib.h"
 #include "components/clay_components.h"
 #include "ui_element.h"
+#include "IO/dump_tree.h"
+#include "IO/parse_tree.h"
 
 #define WINDOW_WIDTH (1024)
 #define WINDOW_HEIGHT (768)
@@ -759,12 +761,7 @@ void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        FILE* f = fopen("output.c", "w");
-        fprintf(f, "#include \"clay.h\"\n\n");
-        fprintf(f, "void layout_ui(void) {\n");
-        dump_tree(f, &root, 0);
-        fprintf(f, "}\n\n");
-        fclose(f);
+        dump_tree("output.c", &root, 0);
     }
 }
 
@@ -889,6 +886,9 @@ int main(void)
         EndDrawing();
     }
 
+    cc_free();
+    free((char*) root.ptr->id.stringId.chars);
+    free(root.ptr);
     for (size_t i = 0; i < root.num_children; ++i) {
         ui_element_remove(root.children[i]);
     }

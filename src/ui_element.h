@@ -38,7 +38,5 @@ typedef struct ui_element_s {
 
 ui_element_t* ui_element_add(ui_element_t* parent, ui_element_type_t type);
 void ui_element_remove(ui_element_t* me);
-void dump_tree(FILE* f, ui_element_t* root, int depth);
-
 
 #endif // UI_ELEMENT_H

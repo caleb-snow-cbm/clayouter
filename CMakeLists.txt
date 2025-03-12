@@ -25,8 +25,11 @@ target_include_directories(clay
 add_executable(${PROJECT_NAME}
     src/main.c
     src/clay_enum_names.c
+    src/clay_struct_names.c
     src/ui_element.c
     src/components/clay_components.c
+    src/IO/dump_tree.c
+    src/IO/parse_tree.c
 )
 target_link_libraries(${PROJECT_NAME}
     clay
@@ -37,6 +40,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
     clay
     src
+    lib
 )
 target_compile_options(${PROJECT_NAME}
     PRIVATE

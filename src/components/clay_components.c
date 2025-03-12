@@ -21,9 +21,9 @@
 #endif
 
 typedef struct {
+    dstring_t** items;
     size_t capacity;
     size_t size;
-    dstring_t** text_boxes;
 } text_box_tab_list_t;
 
 typedef struct {
@@ -205,44 +205,6 @@ static void load_color(size_t index, Clay_Color src)
     load_float(&dst->b, src.b);
 }
 
-Clay_Color cc_parse_color(const color_string_t* c)
-{
-    Clay_Color ret = { 0, 0, 0, 255 };
-    if (c->r.s.length) {
-        ret.r = strtof(c->r.s.chars, NULL);
-        if (ret.r > 255.0f) {
-            ret.r = 255;
-        } else if (ret.r < 0) {
-            ret.r = 0;
-        }
-    }
-    if (c->g.s.length) {
-        ret.g = strtof(c->g.s.chars, NULL);
-        if (ret.g > 255.0f) {
-            ret.g = 255;
-        } else if (ret.r < 0) {
-            ret.g = 0;
-        }
-    }
-    if (c->b.s.length) {
-        ret.b = strtof(c->b.s.chars, NULL);
-        if (ret.b > 255.0f) {
-            ret.b = 255;
-        } else if (ret.r < 0) {
-            ret.b = 0;
-        }
-    }
-    if (c->a.s.length) {
-        ret.a = strtof(c->a.s.chars, NULL);
-        if (ret.a > 255.0f) {
-            ret.a = 255;
-        } else if (ret.r < 0) {
-            ret.a = 0;
-        }
-    }
-    return ret;
-}
-
 static void calculate_color_string(size_t index)
 {
     float brightness = 0.5f - (cpi.items[index].brightness / COLOR_PICKER_HEIGHT);
@@ -345,6 +307,15 @@ static void calculate_color_offsets(size_t index)
     }
 }
 
+static void clamp_color(float* c)
+{
+    if (*c > 255.0f) {
+        *c = 255.0f;
+    } else if (*c < 0) {
+        *c = 0;
+    }
+}
+
 /********************
  * Public functions *
  ********************/
@@ -354,9 +325,37 @@ void cc_begin_layout(void) {
     cpi.size = 0;
 }
 
+void cc_free(void)
+{
+    free(text_boxes.items);
+    free(cpi.items);
+}
+
 void cc_set_theme(theme_t t) { theme = t; }
 
 const theme_t* cc_get_theme(void) { return &theme; }
+
+Clay_Color cc_parse_color(const color_string_t* c)
+{
+    Clay_Color ret = { 0, 0, 0, 255 };
+    if (c->r.s.length) {
+        ret.r = strtof(c->r.s.chars, NULL);
+        clamp_color(&ret.r);
+    }
+    if (c->g.s.length) {
+        ret.g = strtof(c->g.s.chars, NULL);
+        clamp_color(&ret.g);
+    }
+    if (c->b.s.length) {
+        ret.b = strtof(c->b.s.chars, NULL);
+        clamp_color(&ret.a);
+    }
+    if (c->a.s.length) {
+        ret.a = strtof(c->a.s.chars, NULL);
+        clamp_color(&ret.a);
+    }
+    return ret;
+}
 
 /**************
  * Components *
@@ -383,9 +382,9 @@ void cc_text_box(dstring_t* text, Clay_String label)
             text_boxes.capacity = 4;
         }
         text_boxes.capacity *= 2;
-        text_boxes.text_boxes = realloc(text_boxes.text_boxes, sizeof(void*) * text_boxes.capacity);
+        text_boxes.items = realloc(text_boxes.items, sizeof(void*) * text_boxes.capacity);
     }
-    text_boxes.text_boxes[text_boxes.size++] = text;
+    text_boxes.items[text_boxes.size++] = text;
     bool selected = text == selected_text_box;
     CLAY({
         .layout = { .sizing = { .width = CLAY_SIZING_GROW(60) },
@@ -415,10 +414,10 @@ void cc_text_box(dstring_t* text, Clay_String label)
 
 void cc_text_box_advance(void)
 {
-    // find currently selceted textbox
+    // find currently selected textbox
     for (size_t i = 0; i < text_boxes.size; ++i) {
-        if (text_boxes.text_boxes[i] == selected_text_box) {
-            selected_text_box = text_boxes.text_boxes[(i + 1) % text_boxes.size];
+        if (text_boxes.items[i] == selected_text_box) {
+            selected_text_box = text_boxes.items[(i + 1) % text_boxes.size];
             break;
         }
     }

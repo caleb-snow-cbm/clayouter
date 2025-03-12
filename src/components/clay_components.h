@@ -50,6 +50,8 @@ const theme_t* cc_get_theme(void);
 void cc_button(Clay_String text, on_hover_cb_t hover_cb, intptr_t user_data);
 void cc_check_box(bool* value, Clay_String label);
 void cc_begin_layout(void);
+void cc_free(void);
+
 dstring_t* cc_get_selected_text_box(void);
 void cc_text_box_append(dstring_t* text_box, char c);
 void cc_selection_item(Clay_String name, const Clay_String* values, size_t count, uint8_t* value_ptr);
