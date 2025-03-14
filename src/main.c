@@ -82,7 +82,7 @@ typedef struct {
 typedef struct {
     dstring_t text;
     color_string_t text_color;
-    dstring_t font_id;
+    dstring_t font_name;
     dstring_t font_size;
     dstring_t letter_spacing;
     dstring_t line_height;
@@ -99,6 +99,18 @@ typedef struct {
     on_hover_properties_t on_hover;
 } declaration_properties_t;
 
+typedef struct {
+    Clay_String id;
+    uint16_t size;
+} font_info_t;
+
+typedef struct {
+    font_info_t* info;
+    Font* fonts;
+    size_t count;
+    size_t capacity;
+} fonts_t;
+
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
 
 static const theme_t* theme;
@@ -114,6 +126,17 @@ static ui_element_t* selected_ui_element = NULL;
 static ui_element_t* root;
 static Clay_ImageElementConfig color_picker_im;
 static bool import_selection_visible = false;
+static cc_selection_menu_t child_selection_menu = {
+    .label = CLAY_STRING("Child elements")
+};
+
+static fonts_t fonts;
+static FilePathList font_files;
+static cc_selection_menu_t font_selection_menu = {
+    .label = CLAY_STRING("Fonts")
+};
+
+void load_properties(void);
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -192,12 +215,13 @@ static char get_char_from_key(int key)
 
 void dynamic_string_copy(dstring_t* dst, Clay_String src)
 {
-    if (dst->capacity < src.length) {
+    if (dst->capacity <= src.length) {
         dst->capacity = src.length;
-        void* tmp = (char*) realloc((char*) dst->s.chars, dst->capacity);
+        void* tmp = (char*) realloc((char*) dst->s.chars, dst->capacity + 1);
         dst->s.chars = (char*) tmp;
     }
     memcpy((char*) dst->s.chars, src.chars, src.length);
+    ((char*)dst->s.chars)[src.length] = '\0';
     dst->s.length = src.length;
 }
 
@@ -222,6 +246,51 @@ void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data
         dropdown_menu.floating.offset.y = data.position.y;
         dropdown_parent = (ui_element_t*) user_data;
     }
+}
+
+void toggle_bool(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        bool* x = (bool*) user_data;
+        *x = !(*x);
+    }
+}
+
+void select_font_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    size_t font_index = (size_t) user_data;
+    dynamic_string_copy(&selected_t_properties.font_name, font_selection_menu.options[font_index]);
+    font_selection_menu.visible = false;
+
+    assert(selected_ui_element);
+    assert(selected_ui_element->type == UI_ELEMENT_TEXT);
+    uint16_t current_size = selected_ui_element->text_config->fontSize;
+    for (size_t i = 0; i < fonts.count; ++i) {
+        if (fonts.info[i].size == current_size &&
+            strcmp(fonts.info[i].id.chars, font_selection_menu.options[font_index].chars) == 0)
+        {
+            selected_ui_element->text_config->fontId = i;
+            load_properties();
+            return;
+        }
+    }
+
+    if (fonts.count == fonts.capacity) {
+        fonts.capacity *= 2;
+        fonts.fonts = realloc(fonts.fonts, sizeof(*fonts.fonts) * fonts.capacity);
+        fonts.info = realloc(fonts.info, sizeof(*fonts.info) * fonts.capacity);
+        Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts.fonts);
+    }
+    size_t index = fonts.count;
+    fonts.count++;
+    fonts.fonts[index] = LoadFontEx(font_files.paths[font_index], current_size, NULL, 400);
+    fonts.info[index].id = font_selection_menu.options[font_index];
+    fonts.info[index].size = current_size;
+    selected_ui_element->text_config->fontId = index;
+    load_properties();
 }
 
 Clay_LayoutConfig parse_layout(layout_properties_t* layout)
@@ -254,15 +323,13 @@ Clay_LayoutConfig parse_layout(layout_properties_t* layout)
 
 #define LOAD(dst, src, format)                                                                     \
     do {                                                                                           \
-        if ((dst).capacity) {                                                                      \
-            (dst).s.length                                                                         \
-                = snprintf((char*) (dst).s.chars, (size_t) (dst).capacity, format, (src));         \
-        } else {                                                                                   \
-            int necessary_cap = snprintf(NULL, 0, format, (src));                                  \
+        int necessary_cap = snprintf(NULL, 0, format, (src));                                      \
+        if ((dst).capacity < necessary_cap + 1) {                                                  \
             (dst).capacity = necessary_cap + 1;                                                    \
-            (dst).s.chars = malloc((dst).capacity + 1);                                            \
-            (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                        \
+            void* tmp = realloc((char*) (dst).s.chars, (dst).capacity + 1);                        \
+            (dst).s.chars = tmp;                                                                   \
         }                                                                                          \
+        (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                            \
     } while (0)
 
 #define LOAD_FLOAT(dst, src) LOAD(dst, src, "%3.1f")
@@ -332,10 +399,15 @@ static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* s
 Clay_TextElementConfig parse_text_config(const text_properties_t* src)
 {
     Clay_TextElementConfig ret = { 0 };
-    if (src->font_id.s.length)
-        ret.fontId = (uint16_t) strtoul(src->font_id.s.chars, NULL, 0);
     if (src->font_size.s.length)
         ret.fontSize = (uint16_t) strtoul(src->font_size.s.chars, NULL, 0);
+    for (size_t i = 0; i < fonts.count; ++i) {
+        if (fonts.info[i].size == ret.fontSize &&
+            strcmp(fonts.info[i].id.chars, src->font_name.s.chars) == 0) {
+            ret.fontId = (uint16_t) i;
+            break;
+        }
+    }
     if (src->letter_spacing.s.length)
         ret.letterSpacing = (uint16_t) strtoul(src->letter_spacing.s.chars, NULL, 0);
     if (src->line_height.s.length)
@@ -465,7 +537,7 @@ void load_properties(void)
         Clay_TextElementConfig* src = selected_ui_element->text_config;
         dynamic_string_copy(&selected_t_properties.text, selected_ui_element->text.s);
         load_color(&selected_t_properties.text_color, src->textColor);
-        LOAD_UINT(selected_t_properties.font_id, src->fontId);
+        dynamic_string_copy(&selected_t_properties.font_name, fonts.info[src->fontId].id);
         LOAD_UINT(selected_t_properties.font_size, src->fontSize);
         LOAD_UINT(selected_t_properties.letter_spacing, src->letterSpacing);
         LOAD_UINT(selected_t_properties.line_height, src->lineHeight);
@@ -503,7 +575,7 @@ void open_children(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        cc_open_selection_menu();
+        child_selection_menu.visible = true;
     }
 }
 
@@ -611,7 +683,10 @@ void text_properties_layout(text_properties_t* p)
     {
         cc_text_box(&p->text, CLAY_STRING("Text"));
         cc_color_selector(color_picker_im, &p->text_color);
-        cc_text_box(&p->font_id, CLAY_STRING("Font ID"));
+        cc_button(p->font_name.s, toggle_bool, (intptr_t) &font_selection_menu.visible);
+        if (font_selection_menu.visible) {
+            cc_selection_menu(&font_selection_menu);
+        }
         cc_text_box(&p->font_size, CLAY_STRING("Font size"));
         cc_text_box(&p->letter_spacing, CLAY_STRING("Letter spacing"));
         cc_text_box(&p->line_height, CLAY_STRING("Line height"));
@@ -699,31 +774,31 @@ void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t us
 void show_children(ui_element_t* e)
 {
     static size_t child_capacity = 0;
-    static Clay_String* child_names;
-    static on_hover_cb_t* callbacks;
-    static intptr_t* user_data;
     if (e->type == UI_ELEMENT_TEXT) return;
     if (e->num_children > child_capacity) {
         size_t old_cap = child_capacity;
         child_capacity = e->num_children;
-        child_names = realloc(child_names, sizeof(Clay_String) * child_capacity);
-        memset(child_names + old_cap, 0, sizeof(Clay_String) * (child_capacity - old_cap));
-        callbacks = realloc(callbacks, sizeof(on_hover_cb_t) * child_capacity);
-        user_data = realloc(user_data, sizeof(intptr_t) * child_capacity);
+        child_selection_menu.options = realloc(child_selection_menu.options, sizeof(Clay_String) * child_capacity);
+        memset(child_selection_menu.options + old_cap, 0, sizeof(Clay_String) * (child_capacity - old_cap));
+        child_selection_menu.cbs = realloc(child_selection_menu.cbs, sizeof(on_hover_cb_t) * child_capacity);
+        child_selection_menu.user_data = realloc(child_selection_menu.user_data, sizeof(intptr_t) * child_capacity);
     }
     for (size_t i = 0; i < e->num_children; ++i) {
-        if (child_names[i].length == 0) {
+        if (child_selection_menu.options[i].length == 0) {
             char* tmp = (char*) malloc(64);
-            child_names[i].chars = tmp;
+            child_selection_menu.options[i].chars = tmp;
         }
-        callbacks[i] = select_child_callback;
-        user_data[i] = (intptr_t) e->children[i];
+        child_selection_menu.cbs[i] = select_child_callback;
+        child_selection_menu.user_data[i] = (intptr_t) e->children[i];
     }
     for (size_t i = 0; i < e->num_children; ++i) {
         // assumes 2 types of elements
-        child_names[i].length = snprintf((char*) child_names[i].chars, 64, "Child %zu, %s", i, e->children[i]->type ? "Text" : "Element");
+        child_selection_menu.options[i].length
+            = snprintf((char*) child_selection_menu.options[i].chars, 64, "Child %zu, %s", i,
+                e->children[i]->type ? "Text" : "Element");
     }
-    cc_selection_menu(CLAY_STRING("Child elements"), child_names, callbacks, user_data, e->num_children);
+    child_selection_menu.count = e->num_children;
+    cc_selection_menu(&child_selection_menu);
 }
 
 void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
@@ -732,7 +807,7 @@ void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         ui_element_t* parent = (ui_element_t*) user_data;
         if (parent == dropdown_parent) {
-            selected_ui_element = ui_element_insert_after(parent, NULL, UI_ELEMENT_DECLARATION);
+            selected_ui_element = ui_element_insert_before(parent, NULL, UI_ELEMENT_DECLARATION);
         } else {
             selected_ui_element = ui_element_insert_after((ui_element_t*) user_data, dropdown_parent, UI_ELEMENT_DECLARATION);
         }
@@ -764,21 +839,19 @@ void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_d
 void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
-    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        // TODO: select file to parse
-        dstring_t* path = (dstring_t*) user_data;
-        ui_element_t* tmp = parse_tree(path->s.chars);
-        if (tmp) {
-            ui_element_t* parent = dropdown_parent;
-            parent->num_children++;
-            parent->children = realloc(parent->children, sizeof(*parent->children) * parent->num_children);
-            parent->children[parent->num_children - 1] = tmp;
-            tmp->parent = parent;
-            selected_ui_element = tmp;
-            load_properties();
-            import_selection_visible = false;
-            dropdown_parent = NULL;
-        }
+    if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    dstring_t* path = (dstring_t*) user_data;
+    ui_element_t* tmp = parse_tree(path->s.chars);
+    if (tmp) {
+        ui_element_t* parent = dropdown_parent;
+        parent->num_children++;
+        parent->children = realloc(parent->children, sizeof(*parent->children) * parent->num_children);
+        parent->children[parent->num_children - 1] = tmp;
+        tmp->parent = parent;
+        selected_ui_element = tmp;
+        load_properties();
+        import_selection_visible = false;
+        dropdown_parent = NULL;
     }
 }
 
@@ -831,7 +904,8 @@ void close_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t u
 void import_selection(void)
 {
     static dstring_t path = { 0 };
-    CLAY( { .layout = { .padding = CLAY_PADDING_ALL(8),
+    CLAY( { .id = CLAY_ID("import_selection"),
+            .layout = { .padding = CLAY_PADDING_ALL(8),
                         .childGap = 8,
                         .layoutDirection = CLAY_TOP_TO_BOTTOM },
             .backgroundColor = theme->background,
@@ -905,12 +979,48 @@ int main(void)
     Clay_Initialize(clay_arena, (Clay_Dimensions) { WINDOW_WIDTH, WINDOW_HEIGHT }, err);
 
     theme = cc_get_theme();
-    Font* fonts = malloc(sizeof(Font) * theme->text_types_count);
-    for (size_t i = 0; i < theme->text_types_count; ++i) {
-        fonts[i]
-            = LoadFontEx("resources/Roboto-Regular.ttf", theme->text_types[i].fontSize, NULL, 128);
+    font_files = LoadDirectoryFiles("resources");
+    const char* default_font = "Roboto-Regular";
+    fonts.capacity = theme->text_types_count;
+    fonts.count = theme->text_types_count;
+    fonts.fonts = (Font*) malloc(sizeof(*fonts.fonts) * fonts.capacity);
+    fonts.info = (font_info_t*) malloc(sizeof(*fonts.info) * fonts.capacity);
+    for (size_t i = 0; i < font_files.count;) {
+        if (strcmp(GetFileExtension(font_files.paths[i]), ".ttf")) {
+            font_files.count--;
+            font_files.capacity--;
+            free(font_files.paths[i]);
+            memmove(&font_files.paths[i], &font_files.paths[i + 1], sizeof(void*) * (font_files.count - i));
+            continue;
+        }
+        const char* filename = GetFileNameWithoutExt(font_files.paths[i]);
+        if (!strcmp(filename, default_font)) {
+            size_t filename_len = strlen(filename);
+            char* allocated_filename = malloc(filename_len + 1);
+            strcpy(allocated_filename, filename);
+            for (size_t j = 0; j < theme->text_types_count; ++j) {
+                fonts.fonts[j] = LoadFontEx(font_files.paths[i], theme->text_types[j].fontSize, NULL, 400);
+                fonts.info[j].id = (Clay_String) { filename_len, allocated_filename };
+                fonts.info[j].size = theme->text_types[j].fontSize;
+            }
+        }
+        ++i;
     }
-    Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
+    font_selection_menu.count = font_files.count;
+    font_selection_menu.options = (Clay_String*) malloc(sizeof(Clay_String) * font_files.count);
+    font_selection_menu.cbs = (on_hover_cb_t*) malloc(sizeof(on_hover_cb_t) * font_files.count);
+    font_selection_menu.user_data = (intptr_t*) malloc(sizeof(intptr_t)* font_files.count);
+    for (size_t i = 0; i < font_files.count; ++i) {
+        const char* filename = GetFileNameWithoutExt(font_files.paths[i]);
+        int32_t filename_len = (int32_t) strlen(filename);
+        char* allocated_filename = malloc(filename_len + 1);
+        strcpy(allocated_filename, filename);
+        font_selection_menu.options[i] = (Clay_String) { filename_len, allocated_filename };
+        font_selection_menu.cbs[i] = select_font_callback;
+        font_selection_menu.user_data[i] =  (intptr_t) i;
+    }
+
+    Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts.fonts);
 
     root = ui_element_insert_after(NULL, NULL, UI_ELEMENT_DECLARATION);
     root->ptr->layout.sizing = (Clay_Sizing) { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) };
@@ -959,7 +1069,9 @@ int main(void)
             properties_window();
             if (key || left_mouse || right_mouse)
                 save_properties();
-            show_children(selected_ui_element);
+            if (child_selection_menu.visible) {
+                show_children(selected_ui_element);
+            }
         }
         configure_element(root);
 
@@ -969,16 +1081,18 @@ int main(void)
 
         BeginDrawing();
         ClearBackground(BLACK);
-        Clay_Raylib_Render(Clay_EndLayout(), fonts);
+        Clay_Raylib_Render(Clay_EndLayout(), fonts.fonts);
         EndDrawing();
     }
 
+    UnloadDirectoryFiles(font_files);
     cc_free();
     ui_element_remove(root);
-    for (size_t i = 0; i < theme->text_types_count; ++i) {
-        UnloadFont(fonts[i]);
+    for (size_t i = 0; i < fonts.count; ++i) {
+        UnloadFont(fonts.fonts[i]);
     }
-    free(fonts);
+    free(fonts.fonts);
+    free(fonts.info);
     CloseWindow();
     free(clay_memory);
 }

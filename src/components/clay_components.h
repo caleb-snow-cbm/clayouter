@@ -45,6 +45,15 @@ typedef struct {
     size_t selected_tab;
 } tab_page_t;
 
+typedef struct {
+    Clay_String label;
+    Clay_String* options;
+    on_hover_cb_t* cbs;
+    intptr_t* user_data;
+    size_t count;
+    bool visible;
+} cc_selection_menu_t;
+
 void cc_set_theme(theme_t t);
 const theme_t* cc_get_theme(void);
 void cc_button(Clay_String text, on_hover_cb_t hover_cb, intptr_t user_data);
@@ -59,9 +68,7 @@ void cc_text_box(dstring_t* text, Clay_String label);
 void cc_tab_page(tab_page_t* page, void* user_data);
 void cc_initialize_tab_page(tab_page_t* page);
 void cc_text_box_advance(void);
-void cc_open_selection_menu(void);
-void cc_selection_menu(Clay_String label, const Clay_String* options, on_hover_cb_t* cbs, intptr_t* user_data, size_t count);
-void cc_close_selection_menu(void);
+void cc_selection_menu(cc_selection_menu_t* menu);
 void cc_color_selector(Clay_ImageElementConfig im, color_string_t* color);
 Clay_Color cc_parse_color(const color_string_t* c);
 

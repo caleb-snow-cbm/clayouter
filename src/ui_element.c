@@ -22,6 +22,7 @@ static ui_element_t* ui_element_add(ui_element_t* parent, ui_element_type_t type
     } else {
         me->text_config = (Clay_TextElementConfig*) malloc(sizeof(Clay_TextElementConfig));
         memset(me->text_config, 0, sizeof(Clay_TextElementConfig));
+        me->text_config->textColor.a = 255.0f;
     }
     me->parent = parent;
     return me;

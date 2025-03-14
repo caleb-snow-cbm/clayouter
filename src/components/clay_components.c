@@ -145,15 +145,6 @@ static void selection_menu_callback(Clay_ElementId id, Clay_PointerData data, in
     }
 }
 
-static void selection_menu_close_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
-{
-    (void) id;
-    (void) user_data;
-    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        sm_visible = false;
-    }
-}
-
 static void color_picker_set_brightness(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -552,19 +543,8 @@ void cc_check_box(bool* value, Clay_String label)
     }
 }
 
-void cc_open_selection_menu(void)
+void cc_selection_menu(cc_selection_menu_t* menu)
 {
-    sm_visible = true; // only supports 1 at a time...
-}
-
-void cc_selection_menu(Clay_String label,
-                       const Clay_String* options,
-                       on_hover_cb_t* cbs,
-                       intptr_t* user_data,
-                       size_t count)
-{
-    if (!sm_visible)
-        return;
     CLAY({
         .id = CLAY_ID("selection_menu"),
         .layout = { .padding = CLAY_PADDING_ALL(8), .childGap = 8, .layoutDirection = CLAY_TOP_TO_BOTTOM },
@@ -580,7 +560,7 @@ void cc_selection_menu(Clay_String label,
         .border = { .color = theme.highlight, .width = CLAY_BORDER_OUTSIDE(1) }
     })
     {
-        CLAY_TEXT(label, &theme.text_types[TT_TITLE]);
+        CLAY_TEXT(menu->label, &theme.text_types[TT_TITLE]);
         CLAY({
             .layout = { .childGap = 8,
                         .childAlignment = { .x = CLAY_ALIGN_X_CENTER },
@@ -588,23 +568,18 @@ void cc_selection_menu(Clay_String label,
             .scroll = { .vertical = true, }
         })
         {
-            for (size_t i = 0; i < count; ++i) {
+            for (size_t i = 0; i < menu->count; ++i) {
                 if (i == sm_items.capacity) {
                     sm_items.capacity += 16;
                     sm_items.items = realloc(sm_items.items, sizeof(sm_item_t) * sm_items.capacity);
                 }
-                sm_items.items[i].cb = cbs[i];
-                sm_items.items[i].user_data = user_data[i];
-                cc_button(options[i], selection_menu_callback, (intptr_t) i);
+                sm_items.items[i].cb = menu->cbs[i];
+                sm_items.items[i].user_data = menu->user_data[i];
+                cc_button(menu->options[i], selection_menu_callback, (intptr_t) i);
             }
         }
-        cc_button(CLAY_STRING("Close"), selection_menu_close_callback, 0);
+        cc_button(CLAY_STRING("Close"), toggle_bool, (intptr_t) &menu->visible);
     }
-}
-
-void cc_close_selection_menu(void)
-{
-    sm_visible = false;
 }
 
 void cc_color_picker(Clay_ImageElementConfig im, size_t index)
