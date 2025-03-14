@@ -20,8 +20,6 @@ typedef struct {
     ui_element_t* parent;
     stb_lexer* lexer;
     const char* filename;
-    size_t line_number;
-    size_t column_number;
 } parse_ctx_t;
 
 static bool parse_bool(parse_ctx_t* ctx, bool* out);
@@ -35,7 +33,18 @@ static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_in
 static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info, size_t member_index);
 static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool expect_token(parse_ctx_t* ctx, const char* token);
+
+/**
+ * @brief Get the next token and compare it with expected values
+ * 
+ * @param ctx 
+ * @param tokens Array of possible tokens, can be single or multi-character
+ * @param num_tokens Number of possible tokens
+ * @return Index of token found or -1 if none found
+ */
 static int expect_tokens(parse_ctx_t* ctx, const char** tokens, int num_tokens);
+
+static ui_element_t* parse_tree_r(parse_ctx_t* ctx);
 
 #define REPORT_FAILURE(ctx, expected)                                                              \
     do {                                                                                           \
@@ -57,7 +66,7 @@ static int expect_tokens(parse_ctx_t* ctx, const char** tokens, int num_tokens);
 /* WRAPPER MACRO HANDLING */
 typedef bool (*macro_handler_t)(parse_ctx_t* ctx, uint8_t* out);
 
-bool clay_sizing_fit(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_sizing_fit(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -89,10 +98,11 @@ bool clay_sizing_fit(parse_ctx_t* ctx, uint8_t* out)
         sizing->size.minMax.max = (float) ctx->lexer->real_number;
     else
         sizing->size.minMax.max = (float) ctx->lexer->int_number;
+    EXPECT_REQUIRED(ctx, ")");
     return true;
 }
 
-bool clay_sizing_grow(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_sizing_grow(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -124,10 +134,11 @@ bool clay_sizing_grow(parse_ctx_t* ctx, uint8_t* out)
         sizing->size.minMax.max = (float) ctx->lexer->real_number;
     else
         sizing->size.minMax.max = (float) ctx->lexer->int_number;
+    EXPECT_REQUIRED(ctx, ")");
     return true;
 }
 
-bool clay_sizing_fixed(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_sizing_fixed(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -145,10 +156,11 @@ bool clay_sizing_fixed(parse_ctx_t* ctx, uint8_t* out)
         sizing->size.minMax.min = (float) ctx->lexer->real_number;
         sizing->size.minMax.max = (float) ctx->lexer->real_number;
     }
+    EXPECT_REQUIRED(ctx, ")");
     return true;
 }
 
-bool clay_sizing_percent(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_sizing_percent(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -163,10 +175,11 @@ bool clay_sizing_percent(parse_ctx_t* ctx, uint8_t* out)
         sizing->size.percent = (float) ctx->lexer->real_number;
     else
         sizing->size.percent = (float) ctx->lexer->real_number;
+    EXPECT_REQUIRED(ctx, ")");
     return true;
 }
 
-bool clay_corner_radius(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_corner_radius(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -188,7 +201,7 @@ bool clay_corner_radius(parse_ctx_t* ctx, uint8_t* out)
     return true;
 }
 
-bool clay_padding_all(parse_ctx_t* ctx, uint8_t* out)
+static bool clay_padding_all(parse_ctx_t* ctx, uint8_t* out)
 {
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -407,9 +420,10 @@ static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_inf
 static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
 {
     for (;;) {
-next_field:
         const char* possible[] = { ".", "}" };
-        int token = expect_tokens(ctx, possible, numberof(possible));
+        int token;
+next_field:
+        token = expect_tokens(ctx, possible, numberof(possible));
         if (token == 0) {
             int ret = stb_c_lexer_get_token(ctx->lexer);
             if (!ret || ctx->lexer->token != CLEX_id) return false;
@@ -421,6 +435,7 @@ next_field:
                     if (!ret) return false;
                     if (ctx->lexer->token == ',') goto next_field;
                     if (ctx->lexer->token == '}') return true;
+                    REPORT_FAILURE(ctx, ", or }");
                 }
             }
             return false;
@@ -483,17 +498,45 @@ static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* inf
     return true;
 }
 
+static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)
+{
+    EXPECT_REQUIRED(ctx, "(");
+    ui_element_t* me = (ui_element_t*) malloc(sizeof *me);
+    memset(me, 0, sizeof *me);
+    me->ptr = (Clay_ElementDeclaration*) malloc(sizeof *me->ptr);
+    memset(me->ptr, 0, sizeof *me->ptr);
+    if (!parse_struct(ctx, (uint8_t*) me->ptr, STRUCT_INFO(Clay_ElementDeclaration))) goto fail;
+    me->on_hover.non_hovered_color = me->ptr->backgroundColor;
+    EXPECT_REQUIRED(ctx, ")");
+    const char* possible_after_decl[] = { "{", ";" };
+    int next_token = expect_tokens(ctx, possible_after_decl, numberof(possible_after_decl));
+    if (next_token == 1) return me;
+    if (next_token == -1) goto fail;
+    ui_element_t* child;
+    ctx->parent = me;
+    do {
+        child = parse_tree_r(ctx);
+        if (child && child != (void*) SIZE_MAX) {
+            child->parent = me;
+            me->num_children++;
+            me->children = realloc(me->children, sizeof(*me->children) * me->num_children);
+            me->children[me->num_children - 1] = child;
+        }
+    } while (child);
+    return me;
+fail:
+    ui_element_remove(me);
+    return NULL;
+}
+
 static ui_element_t* parse_text(parse_ctx_t* ctx)
 {
     ui_element_t* me = NULL;
     EXPECT_REQUIRED(ctx, "CLAY_STRING");
     EXPECT_REQUIRED(ctx, "(");
     me = (ui_element_t*) malloc(sizeof(*me));
+    memset(me, 0, sizeof(*me));
     me->type = UI_ELEMENT_TEXT;
-    me->parent = ctx->parent;
-    if (me->parent) {
-        me->parent->num_children++;
-    }
     me->text_config = 0;
     me->text_config = (Clay_TextElementConfig*) malloc(sizeof(*me->text_config));
     memset(me->text_config, 0, sizeof(*me->text_config));
@@ -513,6 +556,47 @@ fail:
     return NULL;
 }
 
+static bool parse_on_hover(parse_ctx_t* ctx)
+{
+    if (ctx->parent == NULL) {
+        REPORT_FAILURE(ctx, "a parent element before calling Clay_OnHover");
+        return false;
+    }
+    bool prev = ctx->parent->on_hover.enabled;
+    ctx->parent->on_hover.enabled = true;
+    EXPECT_REQUIRED(ctx, "(");
+    int ret = stb_c_lexer_get_token(ctx->lexer);
+    if (!ret || ctx->lexer->token != CLEX_id) {
+        REPORT_FAILURE(ctx, "callback function");
+        return false;
+    }
+    ctx->parent->on_hover.callback.length = ctx->lexer->string_len;
+    ctx->parent->on_hover.callback.chars = malloc(ctx->lexer->string_len + 1);
+    strcpy((char*) ctx->parent->on_hover.callback.chars, ctx->lexer->string);
+    if (!prev) {
+        ctx->parent->on_hover.hovered_color = ctx->parent->ptr->backgroundColor;
+        ctx->parent->on_hover.non_hovered_color = ctx->parent->ptr->backgroundColor;
+    }
+    EXPECT_REQUIRED(ctx, ",");
+    // ignore second argument by ignoring everything until ')'
+    // this could obviously accept a lot of invalid syntax
+    size_t num_parens = 1;
+    do {
+        ret = stb_c_lexer_get_token(ctx->lexer);
+        if (!ret) {
+            REPORT_FAILURE(ctx, ")");
+            return false;
+        }
+        if (ctx->lexer->token == '(') {
+            num_parens++;
+        } else if (ctx->lexer->token == ')') {
+            num_parens--;
+        }
+    } while (num_parens);
+    EXPECT_REQUIRED(ctx, ";");
+    return true;
+}
+
 static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
 {
     ui_element_t* me = NULL;
@@ -520,15 +604,9 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
     int token = expect_tokens(ctx, possible, numberof(possible));
     switch (token) {
     case 0:
-        EXPECT_REQUIRED(ctx, "(");
-        me = (ui_element_t*) malloc(sizeof *me);
-        memset(me, 0, sizeof *me);
-        me->ptr = (Clay_ElementDeclaration*) malloc(sizeof *me->ptr);
-        memset(me->ptr, 0, sizeof *me->ptr);
-        if (!parse_struct(ctx, (uint8_t*) me->ptr, STRUCT_INFO(Clay_ElementDeclaration))) goto fail;
+        me = parse_element_declaration(ctx);
         break;
     case 1:
-        printf("Found text\n");
         EXPECT_REQUIRED(ctx, "(");
         me = parse_text(ctx);
         if (!me)
@@ -537,12 +615,8 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
         EXPECT_REQUIRED(ctx, ";");
         break;
     case 2:
-        if (ctx->parent == NULL) {
-            fprintf(stderr, "Clay_OnHover called without parent declaration!\n");
-            goto fail;
-        }
-        printf("Found OnHover\n");
-        break;
+        if (!parse_on_hover(ctx)) goto fail;
+        return (void*) SIZE_MAX;
     case 3:
         return me;
     default:

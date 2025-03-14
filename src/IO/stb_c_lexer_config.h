@@ -32,7 +32,7 @@
 
 #define STB_C_LEX_0_IS_EOF             N  // if Y, ends parsing at '\0'; if N, returns '\0' as token
 #define STB_C_LEX_INTEGERS_AS_DOUBLES  N  // parses integers as doubles so they can be larger than 'int', but only if STB_C_LEX_STDLIB==N
-#define STB_C_LEX_MULTILINE_DSTRINGS   N  // allow newlines in double-quoted strings
+#define STB_C_LEX_MULTILINE_DSTRINGS   Y  // allow newlines in double-quoted strings
 #define STB_C_LEX_MULTILINE_SSTRINGS   N  // allow newlines in single-quoted strings
 #define STB_C_LEX_USE_STDLIB           Y  // use strtod,strtol for parsing #s; otherwise inaccurate hack
 #define STB_C_LEX_DOLLAR_IDENTIFIER    Y  // allow $ as an identifier character

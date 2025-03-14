@@ -16,12 +16,12 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
         fprintf(f, ".sizing = { ");
         if (IS_NON_ZERO(d->sizing.width)) {
             fprintf(f, ".width = %s(%.3f), ",
-                CLAY_ENUM_VALUE_MACRO(Clay__SizingType, d->sizing.width.type),
+                _Clay__SizingType_Extra_Macros[d->sizing.width.type],
                 d->sizing.width.size.percent);
         }
         if (IS_NON_ZERO(d->sizing.height)) {
             fprintf(f, ".height = %s(%.3f) ",
-                CLAY_ENUM_VALUE_MACRO(Clay__SizingType, d->sizing.height.type),
+                _Clay__SizingType_Extra_Macros[d->sizing.width.type],
                 d->sizing.height.size.percent);
         }
         fprintf(f, "}, ");

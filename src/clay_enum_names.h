@@ -32,4 +32,6 @@ DECLARE_CLAY_ENUM_INFO(Clay_FloatingAttachPointType);
 DECLARE_CLAY_ENUM_INFO(Clay_PointerCaptureMode);
 DECLARE_CLAY_ENUM_INFO(Clay_FloatingAttachToElement);
 
+extern const char* _Clay__SizingType_Extra_Macros[];
+
 #endif // CLAY_ENUM_NAMES_H

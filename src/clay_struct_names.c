@@ -14,6 +14,8 @@
         .offsets = _##s##_Offsets,                                                                 \
         .count = _##s##_Count }
 
+/************************************************************************************/
+
 const char* _Clay_Color_Members[] = { "r", "g", "b", "a" };
 static Clay_Color _Clay_Color;
 DEFINE_STRUCT_MEMBER_COUNT(Clay_Color);
@@ -37,8 +39,17 @@ const member_info_t _Clay_Color_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_Color);
 
-const char* _Clay_TextElementConfig_Members[] = { "textColor", "fontId", "fontSize",
-    "letterSpacing", "lineHeight", "wrapMode", "textAlignment" };
+/************************************************************************************/
+
+const char* _Clay_TextElementConfig_Members[] = {
+    "textColor",
+    "fontId",
+    "fontSize",
+    "letterSpacing",
+    "lineHeight",
+    "wrapMode",
+    "textAlignment"
+};
 static Clay_TextElementConfig _Clay_TextElementConfig;
 DEFINE_STRUCT_MEMBER_COUNT(Clay_TextElementConfig);
 const size_t _Clay_TextElementConfig_Sizes[] = {
@@ -73,6 +84,7 @@ const member_info_t _Clay_TextElementConfig_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_TextElementConfig);
 
+/************************************************************************************/
 
 const char* _Clay_SizingMinMax_Members[] = {
     "min",
@@ -96,6 +108,8 @@ DEFINE_STRUCT_INFO(Clay_SizingMinMax);
 
 static Clay_SizingAxis _Clay_SizingAxis;
 
+/************************************************************************************/
+
 const char* _Clay_SizingAxis_Union_Members[] = {
     "minMax",
     "percent",
@@ -114,6 +128,8 @@ const member_info_t _Clay_SizingAxis_Union_Member_Info[] = {
     { .type = TYPE_FLOAT },
 };
 DEFINE_STRUCT_INFO(Clay_SizingAxis_Union);
+
+/************************************************************************************/
 
 const char* _Clay_SizingAxis_Members[] = {
     "size",
@@ -135,6 +151,8 @@ const member_info_t _Clay_SizingAxis_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_SizingAxis);
 
+/************************************************************************************/
+
 const char* _Clay_Sizing_Members[] = {
     "width",
     "height",
@@ -154,6 +172,8 @@ const member_info_t _Clay_Sizing_Member_Info[] = {
     { .type = TYPE_STRUCT, .struct_info = &_Clay_SizingAxis_Info },
 };
 DEFINE_STRUCT_INFO(Clay_Sizing);
+
+/************************************************************************************/
 
 const char* _Clay_Padding_Members[] = {
     "left",
@@ -184,6 +204,8 @@ const member_info_t _Clay_Padding_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_Padding);
 
+/************************************************************************************/
+
 const char* _Clay_ChildAlignment_Members[] = {
     "x",
     "y",
@@ -203,6 +225,8 @@ const member_info_t _Clay_ChildAlignment_Member_Info[] = {
     { .type = TYPE_ENUM, .enum_info = CLAY_ENUM_INFO(Clay_LayoutAlignmentY) },
 };
 DEFINE_STRUCT_INFO(Clay_ChildAlignment);
+
+/************************************************************************************/
 
 const char* _Clay_LayoutConfig_Members[] = {
     "sizing",
@@ -236,6 +260,7 @@ const member_info_t _Clay_LayoutConfig_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_LayoutConfig);
 
+/************************************************************************************/
 
 const char* _Clay_CornerRadius_Members[] = {
     "topLeft",
@@ -265,6 +290,8 @@ const member_info_t _Clay_CornerRadius_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_CornerRadius);
 
+/************************************************************************************/
+
 const char* _Clay_Dimensions_Members[] = {
     "width",
     "height",
@@ -284,6 +311,8 @@ const member_info_t _Clay_Dimensions_Member_Info[] = {
     { .type = TYPE_FLOAT },
 };
 DEFINE_STRUCT_INFO(Clay_Dimensions);
+
+/************************************************************************************/
 
 const char* _Clay_ImageElementConfig_Members[] = {
     "imageData",
@@ -305,6 +334,8 @@ const member_info_t _Clay_ImageElementConfig_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_ImageElementConfig);
 
+/************************************************************************************/
+
 const char* _Clay_Vector2_Members[] = {
     "x",
     "y",
@@ -325,6 +356,8 @@ const member_info_t _Clay_Vector2_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_Vector2);
 
+/************************************************************************************/
+
 const char* _Clay_FloatingAttachPoints_Members[] = {
     "element",
     "parent",
@@ -344,6 +377,8 @@ const member_info_t _Clay_FloatingAttachPoints_Member_Info[] = {
     { .type = TYPE_ENUM, .enum_info = CLAY_ENUM_INFO(Clay_FloatingAttachPointType) },
 };
 DEFINE_STRUCT_INFO(Clay_FloatingAttachPoints);
+
+/************************************************************************************/
 
 const char* _Clay_FloatingElementConfig_Members[] = {
     "offset",
@@ -385,6 +420,8 @@ const member_info_t _Clay_FloatingElementConfig_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_FloatingElementConfig);
 
+/************************************************************************************/
+
 const char* _Clay_CustomElementConfig_Members[] = {
     "customData",
 };
@@ -400,6 +437,8 @@ const member_info_t _Clay_CustomElementConfig_Member_Info[] = {
     { .type = TYPE_INTEGRAL },
 };
 DEFINE_STRUCT_INFO(Clay_CustomElementConfig);
+
+/************************************************************************************/
 
 const char* _Clay_ScrollElementConfig_Members[] = {
     "horizontal",
@@ -420,6 +459,8 @@ const member_info_t _Clay_ScrollElementConfig_Member_Info[] = {
     { .type = TYPE_BOOL },
 };
 DEFINE_STRUCT_INFO(Clay_ScrollElementConfig);
+
+/************************************************************************************/
 
 const char* _Clay_BorderWidth_Members[] = {
     "left",
@@ -453,6 +494,8 @@ const member_info_t _Clay_BorderWidth_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_BorderWidth);
 
+/************************************************************************************/
+
 const char* _Clay_BorderElementConfig_Members[] = {
     "color",
     "width",
@@ -472,6 +515,8 @@ const member_info_t _Clay_BorderElementConfig_Member_Info[] = {
     { .type = TYPE_STRUCT, .struct_info = &_Clay_BorderWidth_Info },
 };
 DEFINE_STRUCT_INFO(Clay_BorderElementConfig);
+
+/************************************************************************************/
 
 const char* _Clay_ElementDeclaration_Members[] = {
     "id",

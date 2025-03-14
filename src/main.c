@@ -111,8 +111,9 @@ static ui_element_t* dropdown_parent = NULL;
 static declaration_properties_t selected_d_properties;
 static text_properties_t selected_t_properties;
 static ui_element_t* selected_ui_element = NULL;
-ui_element_t root;
+static ui_element_t* root;
 static Clay_ImageElementConfig color_picker_im;
+static bool import_selection_visible = false;
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -133,8 +134,7 @@ static char get_char_from_key(int key)
         return shift ? key : key + 0x20;
     } else if (key >= KEY_KP_0 && key <= KEY_KP_9) {
         return key - KEY_KP_0 + '0';
-    } else
-        switch (key) {
+    } else switch (key) {
         case KEY_APOSTROPHE:
             return shift ? '\"' : '\'';
         case KEY_COMMA:
@@ -187,7 +187,7 @@ static char get_char_from_key(int key)
             return '=';
         default:
             return ' ';
-        }
+    }
 }
 
 void dynamic_string_copy(dstring_t* dst, Clay_String src)
@@ -252,45 +252,44 @@ Clay_LayoutConfig parse_layout(layout_properties_t* layout)
     return ret;
 }
 
-static void load_float(dstring_t* dst, float src)
-{
-    if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%3.1f", src);
-}
+#define LOAD(dst, src, format)                                                                     \
+    do {                                                                                           \
+        if ((dst).capacity) {                                                                      \
+            (dst).s.length                                                                         \
+                = snprintf((char*) (dst).s.chars, (size_t) (dst).capacity, format, (src));         \
+        } else {                                                                                   \
+            int necessary_cap = snprintf(NULL, 0, format, (src));                                  \
+            (dst).capacity = necessary_cap + 1;                                                    \
+            (dst).s.chars = malloc((dst).capacity + 1);                                            \
+            (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                        \
+        }                                                                                          \
+    } while (0)
 
-static void load_uint(dstring_t* dst, uint64_t src)
-{
-    if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%" PRIu64, src);
-}
-
-static void load_int(dstring_t* dst, int64_t src)
-{
-    if (dst->capacity)
-        dst->s.length = snprintf((char*) dst->s.chars, (size_t) dst->capacity, "%" PRId64, src);
-}
+#define LOAD_FLOAT(dst, src) LOAD(dst, src, "%3.1f")
+#define LOAD_UINT(dst, src) LOAD(dst, (uint64_t) (src), "%" PRIu64)
+#define LOAD_INT(dst, src) LOAD(dst, (int64_t) (src), "%" PRId64)
 
 static void load_color(color_string_t* dst, Clay_Color src)
 {
-    load_float(&dst->r, src.r);
-    load_float(&dst->g, src.g);
-    load_float(&dst->b, src.b);
-    load_float(&dst->a, src.a);
+    LOAD_FLOAT(dst->r, src.r);
+    LOAD_FLOAT(dst->g, src.g);
+    LOAD_FLOAT(dst->b, src.b);
+    LOAD_FLOAT(dst->a, src.a);
 }
 
 static void load_layout(layout_properties_t* dst, const Clay_LayoutConfig* src)
 {
     dst->sizing_width_type = src->sizing.width.type;
     dst->sizing_height_type = src->sizing.height.type;
-    load_float(&dst->sizing_width, src->sizing.width.size.percent);
-    load_float(&dst->sizing_height, src->sizing.height.size.percent);
+    LOAD_FLOAT(dst->sizing_width, src->sizing.width.size.percent);
+    LOAD_FLOAT(dst->sizing_height, src->sizing.height.size.percent);
 
-    load_uint(&dst->padding_left, src->padding.left);
-    load_uint(&dst->padding_right, src->padding.right);
-    load_uint(&dst->padding_top, src->padding.top);
-    load_uint(&dst->padding_bottom, src->padding.bottom);
+    LOAD_UINT(dst->padding_left, src->padding.left);
+    LOAD_UINT(dst->padding_right, src->padding.right);
+    LOAD_UINT(dst->padding_top, src->padding.top);
+    LOAD_UINT(dst->padding_bottom, src->padding.bottom);
 
-    load_uint(&dst->child_gap, src->childGap);
+    LOAD_UINT(dst->child_gap, src->childGap);
 
     dst->child_alignment_x = src->childAlignment.x;
     dst->child_alignment_y = src->childAlignment.y;
@@ -300,12 +299,12 @@ static void load_layout(layout_properties_t* dst, const Clay_LayoutConfig* src)
 
 static void load_floating(floating_properties_t* dst, const Clay_FloatingElementConfig* src)
 {
-    load_float(&dst->offset_x, src->offset.x);
-    load_float(&dst->offset_y, src->offset.y);
-    load_float(&dst->expand_width, src->expand.width);
-    load_float(&dst->expand_height, src->expand.height);
+    LOAD_FLOAT(dst->offset_x, src->offset.x);
+    LOAD_FLOAT(dst->offset_y, src->offset.y);
+    LOAD_FLOAT(dst->expand_width, src->expand.width);
+    LOAD_FLOAT(dst->expand_height, src->expand.height);
     // load_uint(&dst->parent_id, src->parentId); TODO
-    load_int(&dst->z_index, src->zIndex);
+    LOAD_INT(dst->z_index, src->zIndex);
     dst->element_attach_type = src->attachPoints.element;
     dst->parent_attach_type = src->attachPoints.parent;
     dst->pointer_capture_mode = src->pointerCaptureMode;
@@ -315,11 +314,11 @@ static void load_floating(floating_properties_t* dst, const Clay_FloatingElement
 static void load_border(border_properties_t* dst, const Clay_BorderElementConfig* src)
 {
     load_color(&dst->color, src->color);
-    load_uint(&dst->left, src->width.left);
-    load_uint(&dst->right, src->width.right);
-    load_uint(&dst->top, src->width.top);
-    load_uint(&dst->bottom, src->width.bottom);
-    load_uint(&dst->between_children, src->width.betweenChildren);
+    LOAD_UINT(dst->left, src->width.left);
+    LOAD_UINT(dst->right, src->width.right);
+    LOAD_UINT(dst->top, src->width.top);
+    LOAD_UINT(dst->bottom, src->width.bottom);
+    LOAD_UINT(dst->between_children, src->width.betweenChildren);
 }
 
 static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* src)
@@ -448,13 +447,13 @@ void load_properties(void)
         load_layout(&selected_d_properties.layout, &element->layout);
         load_color(&selected_d_properties.general.background_color, element->backgroundColor);
 
-        load_float(
-            &selected_d_properties.general.corner_radius_top_left, element->cornerRadius.topLeft);
-        load_float(
-            &selected_d_properties.general.corner_radius_top_right, element->cornerRadius.topRight);
-        load_float(&selected_d_properties.general.corner_radius_bottom_left,
+        LOAD_FLOAT(
+            selected_d_properties.general.corner_radius_top_left, element->cornerRadius.topLeft);
+        LOAD_FLOAT(
+            selected_d_properties.general.corner_radius_top_right, element->cornerRadius.topRight);
+        LOAD_FLOAT(selected_d_properties.general.corner_radius_bottom_left,
             element->cornerRadius.bottomLeft);
-        load_float(&selected_d_properties.general.corner_radius_bottom_right,
+        LOAD_FLOAT(selected_d_properties.general.corner_radius_bottom_right,
             element->cornerRadius.bottomRight);
 
         load_floating(&selected_d_properties.floating, &element->floating);
@@ -463,6 +462,16 @@ void load_properties(void)
         load_border(&selected_d_properties.border, &element->border);
         load_on_hover(&selected_d_properties.on_hover, &selected_ui_element->on_hover);
     } else if (selected_ui_element->type == UI_ELEMENT_TEXT) {
+        Clay_TextElementConfig* src = selected_ui_element->text_config;
+        dynamic_string_copy(&selected_t_properties.text, selected_ui_element->text.s);
+        load_color(&selected_t_properties.text_color, src->textColor);
+        LOAD_UINT(selected_t_properties.font_id, src->fontId);
+        LOAD_UINT(selected_t_properties.font_size, src->fontSize);
+        LOAD_UINT(selected_t_properties.letter_spacing, src->letterSpacing);
+        LOAD_UINT(selected_t_properties.line_height, src->lineHeight);
+        selected_t_properties.wrap_mode = src->wrapMode;
+        selected_t_properties.text_alignment = src->textAlignment;
+        selected_t_properties.hash_string_contents = src->hashStringContents;
     }
 }
 
@@ -721,7 +730,22 @@ void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        selected_ui_element = ui_element_add((ui_element_t*) user_data, UI_ELEMENT_DECLARATION);
+        ui_element_t* parent = (ui_element_t*) user_data;
+        if (parent == dropdown_parent) {
+            selected_ui_element = ui_element_insert_after(parent, NULL, UI_ELEMENT_DECLARATION);
+        } else {
+            selected_ui_element = ui_element_insert_after((ui_element_t*) user_data, dropdown_parent, UI_ELEMENT_DECLARATION);
+        }
+        load_properties();
+        dropdown_parent = NULL;
+    }
+}
+
+void insert_before_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        selected_ui_element = ui_element_insert_before((ui_element_t*) user_data, dropdown_parent, UI_ELEMENT_DECLARATION);
         load_properties();
         dropdown_parent = NULL;
     }
@@ -731,9 +755,30 @@ void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_d
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        selected_ui_element = ui_element_add((ui_element_t*) user_data, UI_ELEMENT_TEXT);
+        selected_ui_element = ui_element_insert_after((ui_element_t*) user_data, NULL, UI_ELEMENT_TEXT);
         load_properties();
         dropdown_parent = NULL;
+    }
+}
+
+void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        // TODO: select file to parse
+        dstring_t* path = (dstring_t*) user_data;
+        ui_element_t* tmp = parse_tree(path->s.chars);
+        if (tmp) {
+            ui_element_t* parent = dropdown_parent;
+            parent->num_children++;
+            parent->children = realloc(parent->children, sizeof(*parent->children) * parent->num_children);
+            parent->children[parent->num_children - 1] = tmp;
+            tmp->parent = parent;
+            selected_ui_element = tmp;
+            load_properties();
+            import_selection_visible = false;
+            dropdown_parent = NULL;
+        }
     }
 }
 
@@ -761,7 +806,46 @@ void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        dump_tree("output.c", &root, 0);
+        dump_tree("output.c", root, 0);
+    }
+}
+
+void open_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    (void) user_data;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        import_selection_visible = true;
+    }
+}
+
+void close_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    (void) user_data;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        import_selection_visible = false;
+    }
+}
+
+void import_selection(void)
+{
+    static dstring_t path = { 0 };
+    CLAY( { .layout = { .padding = CLAY_PADDING_ALL(8),
+                        .childGap = 8,
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM },
+            .backgroundColor = theme->background,
+            .cornerRadius = DEFAULT_CORNER_RADIUS,
+            .border = { .color = theme->highlight, .width = CLAY_BORDER_OUTSIDE(1) },
+            .floating = { .zIndex = INT16_MAX,
+                          .attachPoints = { .element = CLAY_ATTACH_POINT_CENTER_CENTER,
+                                            .parent = CLAY_ATTACH_POINT_CENTER_CENTER },
+                          .attachTo = CLAY_ATTACH_TO_ROOT }}) {
+        cc_text_box(&path, CLAY_STRING("File to import:"));
+        CLAY({ .layout = { .childGap = 8 }}) {
+            cc_button(CLAY_STRING("Import"), import_element_callback, (intptr_t) &path);
+            cc_button(CLAY_STRING("Cancel"), close_import_selection, 0);
+        }
     }
 }
 
@@ -772,10 +856,13 @@ void dropdown(ui_element_t* parent)
         cc_button(CLAY_STRING("Add element"), add_element_callback, (intptr_t) parent);
         cc_button(
             CLAY_STRING("Insert element after"), add_element_callback, (intptr_t) parent->parent);
+        cc_button(
+            CLAY_STRING("Insert element before"), insert_before_callback, (intptr_t) parent->parent);
         cc_button(CLAY_STRING("Add text"), add_text_callback, (intptr_t) parent);
+        cc_button(CLAY_STRING("Import element"), open_import_selection, (intptr_t) parent);
         cc_button(CLAY_STRING("Remove element"), remove_element_callback, (intptr_t) parent);
         cc_button(CLAY_STRING("Properties"), properties_callback, (intptr_t) parent);
-        cc_button(CLAY_STRING("Dump tree"), dump_callback, 0);
+        cc_button(CLAY_STRING("Export layout"), dump_callback, 0);
     }
 }
 
@@ -825,13 +912,11 @@ int main(void)
     }
     Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 
-    root.ptr = (Clay_ElementDeclaration*) malloc(sizeof(Clay_ElementDeclaration));
-    *root.ptr = (Clay_ElementDeclaration) {
-        .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) } },
-    };
-    root.ptr->id.stringId.chars = malloc(sizeof("root"));
-    strcpy((char*) root.ptr->id.stringId.chars, "root");
-    root.ptr->id.stringId.length = sizeof("root") - 1;
+    root = ui_element_insert_after(NULL, NULL, UI_ELEMENT_DECLARATION);
+    root->ptr->layout.sizing = (Clay_Sizing) { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) };
+    root->ptr->id.stringId.chars = malloc(sizeof("root"));
+    strcpy((char*) root->ptr->id.stringId.chars, "root");
+    root->ptr->id.stringId.length = sizeof("root") - 1;
 
     dropdown_menu.id = CLAY_ID("dropdown");
 
@@ -841,7 +926,7 @@ int main(void)
     dropdown_menu.backgroundColor = theme->background;
     dropdown_menu.cornerRadius = DEFAULT_CORNER_RADIUS;
     dropdown_menu.floating.attachTo = CLAY_ATTACH_TO_ROOT;
-    dropdown_menu.floating.zIndex = INT16_MAX;
+    dropdown_menu.floating.zIndex = INT16_MAX - 10;
     dropdown_menu.border.color = theme->highlight;
     dropdown_menu.border.width = (Clay_BorderWidth) CLAY_BORDER_OUTSIDE(1);
     Texture2D color_picker_texture = LoadTexture("resources/color_picker.png");
@@ -860,13 +945,11 @@ int main(void)
             true, RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMouseWheelMoveV()), GetFrameTime());
 
         int key = GetKeyPressed();
-        if (key) {
-            if (cc_get_selected_text_box()) {
-                if (key == KEY_TAB) {
-                    cc_text_box_advance();
-                } else if (key != KEY_LEFT_SHIFT && key != KEY_RIGHT_SHIFT) {
-                    cc_text_box_append(cc_get_selected_text_box(), get_char_from_key(key));
-                }
+        if (key && cc_get_selected_text_box()) {
+            if (key == KEY_TAB) {
+                cc_text_box_advance();
+            } else if (key != KEY_LEFT_SHIFT && key != KEY_RIGHT_SHIFT) {
+                cc_text_box_append(cc_get_selected_text_box(), get_char_from_key(key));
             }
         }
         cc_begin_layout();
@@ -878,7 +961,11 @@ int main(void)
                 save_properties();
             show_children(selected_ui_element);
         }
-        configure_element(&root);
+        configure_element(root);
+
+        if (import_selection_visible) {
+            import_selection();
+        }
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -887,11 +974,7 @@ int main(void)
     }
 
     cc_free();
-    free((char*) root.ptr->id.stringId.chars);
-    free(root.ptr);
-    for (size_t i = 0; i < root.num_children; ++i) {
-        ui_element_remove(root.children[i]);
-    }
+    ui_element_remove(root);
     for (size_t i = 0; i < theme->text_types_count; ++i) {
         UnloadFont(fonts[i]);
     }
