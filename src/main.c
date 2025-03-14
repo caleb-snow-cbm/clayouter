@@ -19,7 +19,11 @@
 #define WINDOW_WIDTH (1024)
 #define WINDOW_HEIGHT (768)
 
+#ifdef _WIN32
+#define numberof(x) _countof(x)
+#else
 #define numberof(x) (sizeof(x) / sizeof(*x))
+#endif
 
 typedef struct {
     dstring_t id;
@@ -127,13 +131,13 @@ static ui_element_t* root;
 static Clay_ImageElementConfig color_picker_im;
 static bool import_selection_visible = false;
 static cc_selection_menu_t child_selection_menu = {
-    .label = CLAY_STRING("Child elements")
+    .label = CLAY_STRING_CONST("Child elements")
 };
 
 static fonts_t fonts;
 static FilePathList font_files;
 static cc_selection_menu_t font_selection_menu = {
-    .label = CLAY_STRING("Fonts")
+    .label = CLAY_STRING_CONST("Fonts")
 };
 
 void load_properties(void);
@@ -141,7 +145,7 @@ void load_properties(void);
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
         const enum_info_t* i = CLAY_ENUM_INFO(e);                                                  \
-        cc_selection_item(*i->name, i->values, i->count, value_ptr);                               \
+        cc_selection_item(*i->name, i->values, i->count, (uint8_t*) value_ptr);                    \
     } while (0)
 
 void clay_error(Clay_ErrorData err)
@@ -586,7 +590,7 @@ void general_properties_layout(void* user_data)
     CLAY_TEXT(CLAY_STRING("Background Color"), HEADER_TEXT);
     cc_color_selector(color_picker_im, &p->background_color);
     CLAY_TEXT(CLAY_STRING("Corner Radius"), HEADER_TEXT);
-    CLAY({})
+    CLAY({ 0 })
     {
         cc_text_box(&p->corner_radius_top_left, CLAY_STRING("Top left"));
         cc_text_box(&p->corner_radius_top_right, CLAY_STRING("Top right"));
@@ -605,7 +609,7 @@ void layout_properties_layout(void* user_data)
     enum_selection_item(Clay__SizingType, &p->layout.sizing_height_type);
     cc_text_box(&p->layout.sizing_height, CLAY_STRING("Height"));
     CLAY_TEXT(CLAY_STRING("Padding"), BODY_TEXT);
-    CLAY({})
+    CLAY({ 0 })
     {
         cc_text_box(&p->layout.padding_top, CLAY_STRING("Top"));
         cc_text_box(&p->layout.padding_left, CLAY_STRING("Left"));
@@ -624,13 +628,13 @@ void floating_properties_layout(void* user_data)
 {
     floating_properties_t* p = &((declaration_properties_t*) user_data)->floating;
     CLAY_TEXT(CLAY_STRING("Offset"), HEADER_TEXT);
-    CLAY({})
+    CLAY({ 0 })
     {
         cc_text_box(&p->offset_x, CLAY_STRING("X"));
         cc_text_box(&p->offset_y, CLAY_STRING("Y"));
     }
     CLAY_TEXT(CLAY_STRING("Expand"), HEADER_TEXT);
-    CLAY({})
+    CLAY({ 0 })
     {
         cc_text_box(&p->expand_width, CLAY_STRING("W"));
         cc_text_box(&p->expand_height, CLAY_STRING("H"));
@@ -717,11 +721,11 @@ void properties_window(void)
 
         if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
             static Clay_String tab_names[] = {
-                CLAY_STRING("General"),
-                CLAY_STRING("Layout"),
-                CLAY_STRING("Floating"),
-                CLAY_STRING("Border"),
-                CLAY_STRING("On Hover"),
+                CLAY_STRING_CONST("General"),
+                CLAY_STRING_CONST("Layout"),
+                CLAY_STRING_CONST("Floating"),
+                CLAY_STRING_CONST("Border"),
+                CLAY_STRING_CONST("On Hover"),
             };
             static layout_fn_t tab_funcs[] = {
                 general_properties_layout,
@@ -846,6 +850,7 @@ void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t 
         ui_element_t* parent = dropdown_parent;
         parent->num_children++;
         parent->children = realloc(parent->children, sizeof(*parent->children) * parent->num_children);
+        assert(parent->children);
         parent->children[parent->num_children - 1] = tmp;
         tmp->parent = parent;
         selected_ui_element = tmp;

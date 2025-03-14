@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -27,11 +28,11 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
         fprintf(f, "}, ");
     }
     if (IS_NON_ZERO(d->padding)) {
-        fprintf(f, ".padding = (Clay_Padding) { %hu, %hu, %hu, %hu }, ", d->padding.left,
+        fprintf(f, ".padding = (Clay_Padding) { %" PRIu16 ", %" PRIu16 ", %" PRIu16 ", %" PRIu16 " }, ", d->padding.left,
             d->padding.right, d->padding.top, d->padding.bottom);
     }
     if (d->childGap) {
-        fprintf(f, ".childGap = %hu, ", d->childGap);
+        fprintf(f, ".childGap = %" PRIu16 ", ", d->childGap);
     }
     if (IS_NON_ZERO(d->childAlignment)) {
         fprintf(f, ".childAlignment = { ");
@@ -112,13 +113,13 @@ void dump_clay_border(FILE* f, Clay_BorderElementConfig* d)
             d->width.top == d->width.bottom &&
             d->width.left == d->width.top) {
             if (d->width.betweenChildren == d->width.left) {
-                fprintf(f, "CLAY_BORDER_ALL(%hu), ", d->width.left);
+                fprintf(f, "CLAY_BORDER_ALL(%" PRIu16 "), ", d->width.left);
             } else if (d->width.betweenChildren == 0) {
-                fprintf(f, "CLAY_BORDER_OUTSIDE(%hu), ", d->width.left);
+                fprintf(f, "CLAY_BORDER_OUTSIDE(%" PRIu16 "), ", d->width.left);
             } else goto print_all;
         } else {
 print_all:
-            fprintf(f, "{ .left = %hu, .right = %hu, .top = %hu, .bottom = %hu, .betweenChildren = %hu }, ",
+            fprintf(f, "{ .left = %" PRIu16 ", .right = %" PRIu16 ", .top = %" PRIu16 ", .bottom = %" PRIu16 ", .betweenChildren = %" PRIu16 " }, ",
                 d->width.left,
                 d->width.right,
                 d->width.top,
@@ -175,12 +176,12 @@ static void dump_clay_text(FILE* f, Clay_String s, Clay_TextElementConfig* c)
     fprintf(f, ".textColor = (Clay_Color) { %.0f, %.0f, %.0f, %.0f }, ", c->textColor.r,
         c->textColor.g, c->textColor.b, c->textColor.a);
     if (c->fontId)
-        fprintf(f, ".fontId = %hu, ", c->fontId);
-    fprintf(f, ".fontSize = %hu, ", c->fontSize);
+        fprintf(f, ".fontId = %" PRIu16 ", ", c->fontId);
+    fprintf(f, ".fontSize = %" PRIu16 ", ", c->fontSize);
     if (c->letterSpacing)
-        fprintf(f, ".letterSpacing = %hu, ", c->letterSpacing);
+        fprintf(f, ".letterSpacing = %" PRIu16 ", ", c->letterSpacing);
     if (c->lineHeight)
-        fprintf(f, ".lineHeight = %hu, ", c->lineHeight);
+        fprintf(f, ".lineHeight = %" PRIu16 ", ", c->lineHeight);
     if (c->wrapMode)
         fprintf(f, ".wrapMode = CLAY_TEXT_WRAP_%s, ",
             CLAY_ENUM_VALUE_MACRO(Clay_TextElementConfigWrapMode, c->wrapMode));

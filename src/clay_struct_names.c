@@ -1,10 +1,14 @@
+#include <stdlib.h>
 #include "clay.h"
 
 #include "clay_struct_names.h"
 
 #define STRUCT_MEMBER_NAMES(s) _##s##_Members
-#define DEFINE_STRUCT_MEMBER_COUNT(s)                                                              \
-    const size_t _##s##_Count = sizeof(STRUCT_MEMBER_NAMES(s)) / sizeof(STRUCT_MEMBER_NAMES(s)[0])
+#ifdef _WIN32
+#define STRUCT_MEMBER_COUNT(s) _countof(STRUCT_MEMBER_NAMES(s))
+#else
+#define STRUCT_MEMBER_COUNT(s) sizeof(STRUCT_MEMBER_NAMES(s)) / sizeof(STRUCT_MEMBER_NAMES(s)[0])
+#endif
 
 #define DEFINE_STRUCT_INFO(s)                                                                      \
     struct_info_t _##s##_Info = { .name = #s,                                                      \
@@ -12,13 +16,12 @@
         .info = _##s##_Member_Info,                                                                \
         .sizes = _##s##_Sizes,                                                                     \
         .offsets = _##s##_Offsets,                                                                 \
-        .count = _##s##_Count }
+        .count =  STRUCT_MEMBER_COUNT(s)}
 
 /************************************************************************************/
 
 const char* _Clay_Color_Members[] = { "r", "g", "b", "a" };
 static Clay_Color _Clay_Color;
-DEFINE_STRUCT_MEMBER_COUNT(Clay_Color);
 const size_t _Clay_Color_Sizes[] = {
     sizeof(_Clay_Color.r),
     sizeof(_Clay_Color.g),
@@ -51,7 +54,6 @@ const char* _Clay_TextElementConfig_Members[] = {
     "textAlignment"
 };
 static Clay_TextElementConfig _Clay_TextElementConfig;
-DEFINE_STRUCT_MEMBER_COUNT(Clay_TextElementConfig);
 const size_t _Clay_TextElementConfig_Sizes[] = {
     sizeof(_Clay_TextElementConfig.textColor),
     sizeof(_Clay_TextElementConfig.fontId),
@@ -90,7 +92,6 @@ const char* _Clay_SizingMinMax_Members[] = {
     "min",
     "max",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_SizingMinMax);
 static Clay_SizingMinMax _Clay_SizingMinMax;
 const size_t _Clay_SizingMinMax_Sizes[] = {
     sizeof(_Clay_SizingMinMax.min),
@@ -114,7 +115,6 @@ const char* _Clay_SizingAxis_Union_Members[] = {
     "minMax",
     "percent",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_SizingAxis_Union);
 const size_t _Clay_SizingAxis_Union_Sizes[] = {
     sizeof(_Clay_SizingAxis.size),
     sizeof(_Clay_SizingAxis.size),
@@ -135,7 +135,6 @@ const char* _Clay_SizingAxis_Members[] = {
     "size",
     "type",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_SizingAxis);
 
 const size_t _Clay_SizingAxis_Sizes[] = {
     sizeof(_Clay_SizingAxis.size),
@@ -157,7 +156,6 @@ const char* _Clay_Sizing_Members[] = {
     "width",
     "height",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_Sizing);
 static Clay_Sizing _Clay_Sizing;
 const size_t _Clay_Sizing_Sizes[] = {
     sizeof(_Clay_Sizing.width),
@@ -182,7 +180,6 @@ const char* _Clay_Padding_Members[] = {
     "bottom",
 
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_Padding);
 static Clay_Padding _Clay_Padding;
 const size_t _Clay_Padding_Sizes[] = {
     sizeof(_Clay_Padding.left),
@@ -210,7 +207,6 @@ const char* _Clay_ChildAlignment_Members[] = {
     "x",
     "y",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_ChildAlignment);
 static Clay_ChildAlignment _Clay_ChildAlignment;
 const size_t _Clay_ChildAlignment_Sizes[] = {
     sizeof(_Clay_ChildAlignment.x),
@@ -235,7 +231,6 @@ const char* _Clay_LayoutConfig_Members[] = {
     "childAlignment",
     "layoutDirection",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_LayoutConfig);
 static Clay_LayoutConfig _Clay_LayoutConfig;
 const size_t _Clay_LayoutConfig_Sizes[] = {
     sizeof(_Clay_LayoutConfig.sizing),
@@ -268,7 +263,6 @@ const char* _Clay_CornerRadius_Members[] = {
     "bottomLeft",
     "bottomRight",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_CornerRadius);
 static Clay_CornerRadius _Clay_CornerRadius;
 const size_t _Clay_CornerRadius_Sizes[] = {
     sizeof(_Clay_CornerRadius.topLeft),
@@ -296,7 +290,6 @@ const char* _Clay_Dimensions_Members[] = {
     "width",
     "height",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_Dimensions);
 static Clay_Dimensions _Clay_Dimensions;
 const size_t _Clay_Dimensions_Sizes[] = {
     sizeof(_Clay_Dimensions.width),
@@ -318,7 +311,6 @@ const char* _Clay_ImageElementConfig_Members[] = {
     "imageData",
     "sourceDimensions",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_ImageElementConfig);
 static Clay_ImageElementConfig _Clay_ImageElementConfig;
 const size_t _Clay_ImageElementConfig_Sizes[] = {
     sizeof(_Clay_ImageElementConfig.imageData),
@@ -340,7 +332,6 @@ const char* _Clay_Vector2_Members[] = {
     "x",
     "y",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_Vector2);
 static Clay_Vector2 _Clay_Vector2;
 const size_t _Clay_Vector2_Sizes[] = {
     sizeof(_Clay_Vector2.x),
@@ -362,7 +353,6 @@ const char* _Clay_FloatingAttachPoints_Members[] = {
     "element",
     "parent",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_FloatingAttachPoints);
 static Clay_FloatingAttachPoints _Clay_FloatingAttachPoints;
 const size_t _Clay_FloatingAttachPoints_Sizes[] = {
     sizeof(_Clay_FloatingAttachPoints.element),
@@ -389,7 +379,6 @@ const char* _Clay_FloatingElementConfig_Members[] = {
     "pointerCaptureMode",
     "attachTo",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_FloatingElementConfig);
 static Clay_FloatingElementConfig _Clay_FloatingElementConfig;
 const size_t _Clay_FloatingElementConfig_Sizes[] = {
     sizeof(_Clay_FloatingElementConfig.offset),
@@ -425,7 +414,6 @@ DEFINE_STRUCT_INFO(Clay_FloatingElementConfig);
 const char* _Clay_CustomElementConfig_Members[] = {
     "customData",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_CustomElementConfig);
 static Clay_CustomElementConfig _Clay_CustomElementConfig;
 const size_t _Clay_CustomElementConfig_Sizes[] = {
     sizeof(_Clay_CustomElementConfig.customData),
@@ -444,7 +432,6 @@ const char* _Clay_ScrollElementConfig_Members[] = {
     "horizontal",
     "vertical",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_ScrollElementConfig);
 static Clay_ScrollElementConfig _Clay_ScrollElementConfig;
 const size_t _Clay_ScrollElementConfig_Sizes[] = {
     sizeof(_Clay_ScrollElementConfig.horizontal),
@@ -469,7 +456,6 @@ const char* _Clay_BorderWidth_Members[] = {
     "bottom",
     "betweenChildren",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_BorderWidth);
 static Clay_BorderWidth _Clay_BorderWidth;
 const size_t _Clay_BorderWidth_Sizes[] = {
     sizeof(_Clay_BorderWidth.left),
@@ -500,7 +486,6 @@ const char* _Clay_BorderElementConfig_Members[] = {
     "color",
     "width",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_BorderElementConfig);
 static Clay_BorderElementConfig _Clay_BorderElementConfig;
 const size_t _Clay_BorderElementConfig_Sizes[] = {
     sizeof(_Clay_BorderElementConfig.color),
@@ -530,7 +515,6 @@ const char* _Clay_ElementDeclaration_Members[] = {
     "border",
     "userData",
 };
-DEFINE_STRUCT_MEMBER_COUNT(Clay_ElementDeclaration);
 static Clay_ElementDeclaration _Clay_ElementDeclaration;
 const size_t _Clay_ElementDeclaration_Sizes[] = {
     sizeof(_Clay_ElementDeclaration.id),

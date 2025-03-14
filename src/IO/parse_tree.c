@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -649,7 +650,7 @@ ui_element_t* parse_tree(const char* filename)
         goto cleanup;
     }
     if (fread(file_data, 1, size, f) != (size_t) size) {
-        fprintf(stderr, "Unable to read %ld bytes from file %s\n", size, filename);
+        fprintf(stderr, "Unable to read %" PRId64 " bytes from file %s\n", size, filename);
         goto cleanup;
     }
     stb_lexer lexer = { 0 };

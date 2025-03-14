@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "clay.h"
 #include "clay_components.h"
@@ -44,28 +45,28 @@ static bool sm_visible;
 
 static Clay_TextElementConfig default_text_types[] = {
     [TT_BODY] = {
-        .textColor = (Clay_Color) { 255, 255, 255, 255 },
+        .textColor = { .r = 255, .g = 255, .b = 255, .a = 255 },
         .fontId = 0,
         .fontSize = 20,
     },
     [TT_HEADER] = {
-        .textColor = (Clay_Color) { 255, 255, 255, 255 },
+        .textColor = { .r = 255, .g = 255, .b = 255, .a = 255 },
         .fontId = 1,
         .fontSize = 26,
     },
     [TT_TITLE] = {
-        .textColor = (Clay_Color) { 255, 255, 255, 255 },
+        .textColor = { .r = 255, .g = 255, .b = 255, .a = 255 },
         .fontId = 2,
         .fontSize = 32,
     }
 };
 
 static theme_t theme = {
-    .background = (Clay_Color) {  22,  22,  22, 255 },
-    .clickable  = (Clay_Color) {  55,  55,  55, 255 },
-    .hovered    = (Clay_Color) {  55,  55, 150, 255 },
-    .selected   = (Clay_Color) {  55, 100, 200, 255 },
-    .highlight  = (Clay_Color) { 255, 255, 255, 255 },
+    .background = { .r =  22, .g =  22, .b =  22, .a = 255 },
+    .clickable  = { .r =  55, .g =  55, .b =  55, .a = 255 },
+    .hovered    = { .r =  55, .g =  55, .b = 150, .a = 255 },
+    .selected   = { .r =  55, .g = 100, .b = 200, .a = 255 },
+    .highlight  = { .r = 255, .g = 255, .b = 255, .a = 255 },
     .text_types = default_text_types,
     .text_types_count = sizeof(default_text_types) / sizeof(*default_text_types),
 };
@@ -597,7 +598,7 @@ void cc_color_picker(Clay_ImageElementConfig im, size_t index)
                       .attachTo = CLAY_ATTACH_TO_ROOT },
         .border = { .color = theme.highlight, .width = CLAY_BORDER_OUTSIDE(1) }})
     {
-        CLAY({}) {
+        CLAY({ 0 }) {
             CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(im.sourceDimensions.width),
                                         .height = CLAY_SIZING_FIT(im.sourceDimensions.height) } },
                 .image = im }) {
