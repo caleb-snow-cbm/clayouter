@@ -1,10 +1,18 @@
 #include <assert.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "clay.h"
 #include "clay_components.h"
+
+#ifdef _WIN32
+#define EMPTY    0
+#else
+#define EMPTY
+#endif
 
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
 
@@ -183,6 +191,7 @@ static void load_float(dstring_t* dst, float src)
     if (dst->capacity < required_cap) {
         dst->capacity = 2 * required_cap;
         void* tmp = realloc((char*) dst->s.chars, dst->capacity);
+        assert(tmp);
         dst->s.chars = tmp;
     }
     dst->s.length = sprintf((char*) dst->s.chars, "%.1f", src);
@@ -375,6 +384,7 @@ void cc_text_box(dstring_t* text, Clay_String label)
         }
         text_boxes.capacity *= 2;
         text_boxes.items = realloc(text_boxes.items, sizeof(void*) * text_boxes.capacity);
+        assert(text_boxes.items);
     }
     text_boxes.items[text_boxes.size++] = text;
     bool selected = text == selected_text_box;
@@ -598,7 +608,7 @@ void cc_color_picker(Clay_ImageElementConfig im, size_t index)
                       .attachTo = CLAY_ATTACH_TO_ROOT },
         .border = { .color = theme.highlight, .width = CLAY_BORDER_OUTSIDE(1) }})
     {
-        CLAY({ 0 }) {
+        CLAY({ EMPTY }) {
             CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(im.sourceDimensions.width),
                                         .height = CLAY_SIZING_FIT(im.sourceDimensions.height) } },
                 .image = im }) {

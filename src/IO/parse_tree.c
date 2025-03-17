@@ -33,6 +33,7 @@ static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, const struct
 static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info, size_t member_index);
 static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
+static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool expect_token(parse_ctx_t* ctx, const char* token);
 
 /**
@@ -50,8 +51,8 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx);
 #define REPORT_FAILURE(ctx, expected)                                                              \
     do {                                                                                           \
         stb_lex_location loc;                                                                      \
-        stb_c_lexer_get_location(ctx->lexer, ctx->lexer->where_firstchar, &loc);                   \
-        fprintf(stderr, "Unexpected token at %s:%d:%d\n", ctx->filename, loc.line_number,          \
+        stb_c_lexer_get_location((ctx)->lexer, (ctx)->lexer->where_firstchar, &loc);               \
+        fprintf(stderr, "Unexpected token at %s:%d:%d\n", (ctx)->filename, loc.line_number,        \
             loc.line_offset);                                                                      \
         fprintf(stderr, "Expected %s\n", expected);                                                \
     } while (0)
@@ -154,8 +155,8 @@ static bool clay_sizing_fixed(parse_ctx_t* ctx, uint8_t* out)
         sizing->size.minMax.min = (float) ctx->lexer->real_number;
         sizing->size.minMax.max = (float) ctx->lexer->real_number;
     } else {
-        sizing->size.minMax.min = (float) ctx->lexer->real_number;
-        sizing->size.minMax.max = (float) ctx->lexer->real_number;
+        sizing->size.minMax.min = (float) ctx->lexer->int_number;
+        sizing->size.minMax.max = (float) ctx->lexer->int_number;
     }
     EXPECT_REQUIRED(ctx, ")");
     return true;
@@ -191,9 +192,9 @@ static bool clay_corner_radius(parse_ctx_t* ctx, uint8_t* out)
     Clay_CornerRadius* r = (Clay_CornerRadius*) out;
     float value;
     if (ctx->lexer->token == CLEX_floatlit)
-        value = ctx->lexer->real_number;
+        value = (float) ctx->lexer->real_number;
     else
-        value = ctx->lexer->int_number;
+        value = (float) ctx->lexer->int_number;
     r->topLeft = value;
     r->topRight = value;
     r->bottomLeft = value;
@@ -216,10 +217,10 @@ static bool clay_padding_all(parse_ctx_t* ctx, uint8_t* out)
         value = (float) ctx->lexer->real_number;
     else
         value = (float) ctx->lexer->int_number;
-    padding->left = value;
-    padding->right = value;
-    padding->top = value;
-    padding->bottom = value;
+    padding->left   = (uint16_t) value;
+    padding->right  = (uint16_t) value;
+    padding->top    = (uint16_t) value;
+    padding->bottom = (uint16_t) value;
     EXPECT_REQUIRED(ctx, ")");
     return true;
 }
@@ -358,8 +359,12 @@ static bool parse_string_literal(parse_ctx_t* ctx, dstring_t* s)
         REPORT_FAILURE(ctx, "string literal");
         return false;
     }
-    s->capacity = ctx->lexer->string_len;
-    s->s.chars = malloc(s->capacity);
+    if (s->capacity < ctx->lexer->string_len) {
+        s->capacity = ctx->lexer->string_len;
+        void* tmp = realloc((char*) s->s.chars, s->capacity);
+        assert(tmp);
+        s->s.chars = tmp;
+    }
     s->s.length = ctx->lexer->string_len;
     memcpy((char*) s->s.chars, ctx->lexer->string, s->capacity);
     return true;
@@ -413,7 +418,9 @@ static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_inf
             }
             break;
         case TYPE_CUSTOM:
-            assert(0 && "unimplmented");
+            if (!parse_custom(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
+                return false;
+            }
         }
     return true;
 }
@@ -497,6 +504,21 @@ static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* inf
     (void) info;
     EXPECT_REQUIRED(ctx, "}");
     return true;
+}
+
+static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
+{
+    if (!strcmp(info->name, "Clay_ElementId")) {
+        EXPECT_REQUIRED(ctx, "CLAY_ID");
+        EXPECT_REQUIRED(ctx, "(");
+        dstring_t id = { 0 };
+        if (!parse_string_literal(ctx, &id)) return false;
+        Clay_String* stringId = (Clay_String*) (out + info->offsets[info->count - 1]);
+        *stringId = id.s;
+        EXPECT_REQUIRED(ctx, ")");
+        return true;
+    }
+    return false;
 }
 
 static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)

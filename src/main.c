@@ -21,8 +21,10 @@
 
 #ifdef _WIN32
 #define numberof(x) _countof(x)
+#define EMPTY    0
 #else
 #define numberof(x) (sizeof(x) / sizeof(*x))
+#define EMPTY
 #endif
 
 typedef struct {
@@ -145,7 +147,7 @@ void load_properties(void);
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
         const enum_info_t* i = CLAY_ENUM_INFO(e);                                                  \
-        cc_selection_item(*i->name, i->values, i->count, (uint8_t*) value_ptr);                    \
+        cc_selection_item(*i->name, i->values, i->count, (uint8_t*) (value_ptr));                  \
     } while (0)
 
 void clay_error(Clay_ErrorData err)
@@ -222,6 +224,7 @@ void dynamic_string_copy(dstring_t* dst, Clay_String src)
     if (dst->capacity <= src.length) {
         dst->capacity = src.length;
         void* tmp = (char*) realloc((char*) dst->s.chars, dst->capacity + 1);
+        assert(tmp);
         dst->s.chars = (char*) tmp;
     }
     memcpy((char*) dst->s.chars, src.chars, src.length);
@@ -233,6 +236,7 @@ void clay_string_copy(Clay_String* dst, dstring_t src)
 {
     if (src.s.length) {
         void* tmp = realloc((char*) dst->chars, src.s.length);
+        assert(tmp);
         dst->chars = tmp;
         memcpy((char*) dst->chars, src.s.chars, src.s.length);
         dst->length = src.s.length;
@@ -331,6 +335,7 @@ Clay_LayoutConfig parse_layout(layout_properties_t* layout)
         if ((dst).capacity < necessary_cap + 1) {                                                  \
             (dst).capacity = necessary_cap + 1;                                                    \
             void* tmp = realloc((char*) (dst).s.chars, (dst).capacity + 1);                        \
+            assert(tmp);                                                                           \
             (dst).s.chars = tmp;                                                                   \
         }                                                                                          \
         (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                            \
@@ -590,7 +595,7 @@ void general_properties_layout(void* user_data)
     CLAY_TEXT(CLAY_STRING("Background Color"), HEADER_TEXT);
     cc_color_selector(color_picker_im, &p->background_color);
     CLAY_TEXT(CLAY_STRING("Corner Radius"), HEADER_TEXT);
-    CLAY({ 0 })
+    CLAY({ EMPTY })
     {
         cc_text_box(&p->corner_radius_top_left, CLAY_STRING("Top left"));
         cc_text_box(&p->corner_radius_top_right, CLAY_STRING("Top right"));
@@ -609,7 +614,7 @@ void layout_properties_layout(void* user_data)
     enum_selection_item(Clay__SizingType, &p->layout.sizing_height_type);
     cc_text_box(&p->layout.sizing_height, CLAY_STRING("Height"));
     CLAY_TEXT(CLAY_STRING("Padding"), BODY_TEXT);
-    CLAY({ 0 })
+    CLAY({ EMPTY })
     {
         cc_text_box(&p->layout.padding_top, CLAY_STRING("Top"));
         cc_text_box(&p->layout.padding_left, CLAY_STRING("Left"));
@@ -628,13 +633,13 @@ void floating_properties_layout(void* user_data)
 {
     floating_properties_t* p = &((declaration_properties_t*) user_data)->floating;
     CLAY_TEXT(CLAY_STRING("Offset"), HEADER_TEXT);
-    CLAY({ 0 })
+    CLAY({ EMPTY })
     {
         cc_text_box(&p->offset_x, CLAY_STRING("X"));
         cc_text_box(&p->offset_y, CLAY_STRING("Y"));
     }
     CLAY_TEXT(CLAY_STRING("Expand"), HEADER_TEXT);
-    CLAY({ 0 })
+    CLAY({ EMPTY })
     {
         cc_text_box(&p->expand_width, CLAY_STRING("W"));
         cc_text_box(&p->expand_height, CLAY_STRING("H"));
@@ -1002,12 +1007,14 @@ int main(void)
         if (!strcmp(filename, default_font)) {
             size_t filename_len = strlen(filename);
             char* allocated_filename = malloc(filename_len + 1);
+            assert(allocated_filename);
             strcpy(allocated_filename, filename);
             for (size_t j = 0; j < theme->text_types_count; ++j) {
                 fonts.fonts[j] = LoadFontEx(font_files.paths[i], theme->text_types[j].fontSize, NULL, 400);
                 fonts.info[j].id = (Clay_String) { filename_len, allocated_filename };
                 fonts.info[j].size = theme->text_types[j].fontSize;
             }
+            break;
         }
         ++i;
     }
@@ -1019,6 +1026,7 @@ int main(void)
         const char* filename = GetFileNameWithoutExt(font_files.paths[i]);
         int32_t filename_len = (int32_t) strlen(filename);
         char* allocated_filename = malloc(filename_len + 1);
+        assert(allocated_filename);
         strcpy(allocated_filename, filename);
         font_selection_menu.options[i] = (Clay_String) { filename_len, allocated_filename };
         font_selection_menu.cbs[i] = select_font_callback;
@@ -1030,6 +1038,7 @@ int main(void)
     root = ui_element_insert_after(NULL, NULL, UI_ELEMENT_DECLARATION);
     root->ptr->layout.sizing = (Clay_Sizing) { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) };
     root->ptr->id.stringId.chars = malloc(sizeof("root"));
+    assert(root->ptr->id.stringId.chars);
     strcpy((char*) root->ptr->id.stringId.chars, "root");
     root->ptr->id.stringId.length = sizeof("root") - 1;
 

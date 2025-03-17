@@ -88,6 +88,56 @@ DEFINE_STRUCT_INFO(Clay_TextElementConfig);
 
 /************************************************************************************/
 
+const char* _Clay_String_Members[] = {
+    "length",
+    "chars",
+};
+static Clay_String _Clay_String;
+const size_t _Clay_String_Sizes[] = {
+    sizeof(_Clay_String.length),
+    sizeof(_Clay_String.chars),
+};
+const size_t _Clay_String_Offsets[] = {
+    offsetof(Clay_String, length),
+    offsetof(Clay_String, chars),
+};
+const member_info_t _Clay_String_Member_Info[] = {
+    { .type = TYPE_INTEGRAL },
+    { .type = TYPE_INTEGRAL },
+};
+DEFINE_STRUCT_INFO(Clay_String);
+
+/************************************************************************************/
+
+const char* _Clay_ElementId_Members[] = {
+    "id",
+    "offset",
+    "baseId",
+    "stringId",
+};
+static Clay_ElementId _Clay_ElementId;
+const size_t _Clay_ElementId_Sizes[] = {
+    sizeof(_Clay_ElementId.id),
+    sizeof(_Clay_ElementId.offset),
+    sizeof(_Clay_ElementId.baseId),
+    sizeof(_Clay_ElementId.stringId),
+};
+const size_t _Clay_ElementId_Offsets[] = {
+    offsetof(Clay_ElementId, id),
+    offsetof(Clay_ElementId, offset),
+    offsetof(Clay_ElementId, baseId),
+    offsetof(Clay_ElementId, stringId),
+};
+const member_info_t _Clay_ElementId_Member_Info[] = {
+    { .type = TYPE_INTEGRAL },
+    { .type = TYPE_INTEGRAL },
+    { .type = TYPE_INTEGRAL },
+    { .type = TYPE_STRUCT, .struct_info = &_Clay_String_Info },
+};
+DEFINE_STRUCT_INFO(Clay_ElementId);
+
+/************************************************************************************/
+
 const char* _Clay_SizingMinMax_Members[] = {
     "min",
     "max",
@@ -539,7 +589,7 @@ const size_t _Clay_ElementDeclaration_Offsets[] = {
     offsetof(Clay_ElementDeclaration, border),
 };
 const member_info_t _Clay_ElementDeclaration_Member_Info[] = {
-    { .type = TYPE_CUSTOM },
+    { .type = TYPE_CUSTOM, .struct_info = &_Clay_ElementId_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_LayoutConfig_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_Color_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_CornerRadius_Info },

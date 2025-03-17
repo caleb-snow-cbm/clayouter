@@ -8,7 +8,7 @@
 #include "clay_enum_names.h"
 
 static uint8_t zero[sizeof(Clay_ElementDeclaration)] = { 0 };
-#define IS_NON_ZERO(region) memcmp(&region, zero, sizeof(region))
+#define IS_NON_ZERO(region) memcmp(&(region), zero, sizeof(region))
 
 static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
 {
@@ -22,7 +22,7 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
         }
         if (IS_NON_ZERO(d->sizing.height)) {
             fprintf(f, ".height = %s(%.3f) ",
-                _Clay__SizingType_Extra_Macros[d->sizing.width.type],
+                _Clay__SizingType_Extra_Macros[d->sizing.height.type],
                 d->sizing.height.size.percent);
         }
         fprintf(f, "}, ");
@@ -48,9 +48,22 @@ static void dump_clay_layout(FILE* f, Clay_LayoutConfig* d)
     }
     if (d->layoutDirection) {
         fprintf(
-            f, ".layoutDirection = %s, ", _Clay_LayoutDirection_Macros[d->layoutDirection]);
+            f, "\n.layoutDirection = %s, ", _Clay_LayoutDirection_Macros[d->layoutDirection]);
     }
     fprintf(f, "}, ");
+}
+
+static void dump_clay_corner_radius(FILE* f, Clay_CornerRadius* r)
+{
+    fprintf(f, ".cornerRadius = ");
+    if (r->bottomLeft == r->bottomRight &&
+        r->topLeft == r->topRight &&
+        r->bottomLeft == r->topLeft) {
+        fprintf(f, "CLAY_CORNER_RADIUS(%.1f), ", r->bottomLeft);
+    } else {
+        fprintf(f, "(Clay_CornerRadius) { %.1f,  %.1f,  %.1f,  %.1f }, ",
+            r->topLeft, r->topRight, r->bottomLeft, r->bottomRight);
+    }
 }
 
 static void dump_clay_floating(FILE* f, Clay_FloatingElementConfig* d)
@@ -152,6 +165,9 @@ static void dump_clay_declaration(FILE* f, Clay_ElementDeclaration* d, on_hover_
     if (IS_NON_ZERO(d->backgroundColor) || IS_NON_ZERO(oh->hovered_color)) {
         dump_clay_color(f, oh);
     }
+    if (IS_NON_ZERO(d->cornerRadius)) {
+        dump_clay_corner_radius(f, &d->cornerRadius);
+    }
     if (IS_NON_ZERO(d->floating)) {
         dump_clay_floating(f, &d->floating);
     }
@@ -214,6 +230,10 @@ void dump_tree_r(FILE* f, ui_element_t* root, int depth)
 void dump_tree(const char* filename, ui_element_t* root, int depth)
 {
     FILE* f = fopen(filename, "w");
+    if (f == NULL) {
+        fprintf(stderr, "Unable to open output file %s\n", filename);
+        return;
+    }
     dump_tree_r(f, root, depth);
     fclose(f);
 }
