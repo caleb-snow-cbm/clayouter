@@ -21,12 +21,11 @@
 /************************************************************************************/
 
 const char* _Clay_Color_Members[] = { "r", "g", "b", "a" };
-static Clay_Color _Clay_Color;
 const size_t _Clay_Color_Sizes[] = {
-    sizeof(_Clay_Color.r),
-    sizeof(_Clay_Color.g),
-    sizeof(_Clay_Color.b),
-    sizeof(_Clay_Color.a),
+    sizeof(((Clay_Color*) 0)->r),
+    sizeof(((Clay_Color*) 0)->g),
+    sizeof(((Clay_Color*) 0)->b),
+    sizeof(((Clay_Color*) 0)->a),
 };
 const size_t _Clay_Color_Offsets[] = {
     offsetof(Clay_Color, r),
@@ -53,16 +52,15 @@ const char* _Clay_TextElementConfig_Members[] = {
     "wrapMode",
     "textAlignment"
 };
-static Clay_TextElementConfig _Clay_TextElementConfig;
 const size_t _Clay_TextElementConfig_Sizes[] = {
-    sizeof(_Clay_TextElementConfig.textColor),
-    sizeof(_Clay_TextElementConfig.fontId),
-    sizeof(_Clay_TextElementConfig.fontSize),
-    sizeof(_Clay_TextElementConfig.letterSpacing),
-    sizeof(_Clay_TextElementConfig.lineHeight),
-    sizeof(_Clay_TextElementConfig.wrapMode),
-    sizeof(_Clay_TextElementConfig.textAlignment),
-    sizeof(_Clay_TextElementConfig.hashStringContents),
+    sizeof(((Clay_TextElementConfig*) 0)->textColor),
+    sizeof(((Clay_TextElementConfig*) 0)->fontId),
+    sizeof(((Clay_TextElementConfig*) 0)->fontSize),
+    sizeof(((Clay_TextElementConfig*) 0)->letterSpacing),
+    sizeof(((Clay_TextElementConfig*) 0)->lineHeight),
+    sizeof(((Clay_TextElementConfig*) 0)->wrapMode),
+    sizeof(((Clay_TextElementConfig*) 0)->textAlignment),
+    sizeof(((Clay_TextElementConfig*) 0)->hashStringContents),
 };
 const size_t _Clay_TextElementConfig_Offsets[] = {
     offsetof(Clay_TextElementConfig, textColor),
@@ -92,10 +90,9 @@ const char* _Clay_String_Members[] = {
     "length",
     "chars",
 };
-static Clay_String _Clay_String;
 const size_t _Clay_String_Sizes[] = {
-    sizeof(_Clay_String.length),
-    sizeof(_Clay_String.chars),
+    sizeof(((Clay_String*) 0)->length),
+    sizeof(((Clay_String*) 0)->chars),
 };
 const size_t _Clay_String_Offsets[] = {
     offsetof(Clay_String, length),
@@ -115,12 +112,11 @@ const char* _Clay_ElementId_Members[] = {
     "baseId",
     "stringId",
 };
-static Clay_ElementId _Clay_ElementId;
 const size_t _Clay_ElementId_Sizes[] = {
-    sizeof(_Clay_ElementId.id),
-    sizeof(_Clay_ElementId.offset),
-    sizeof(_Clay_ElementId.baseId),
-    sizeof(_Clay_ElementId.stringId),
+    sizeof(((Clay_ElementId*) 0)->id),
+    sizeof(((Clay_ElementId*) 0)->offset),
+    sizeof(((Clay_ElementId*) 0)->baseId),
+    sizeof(((Clay_ElementId*) 0)->stringId),
 };
 const size_t _Clay_ElementId_Offsets[] = {
     offsetof(Clay_ElementId, id),
@@ -142,10 +138,9 @@ const char* _Clay_SizingMinMax_Members[] = {
     "min",
     "max",
 };
-static Clay_SizingMinMax _Clay_SizingMinMax;
 const size_t _Clay_SizingMinMax_Sizes[] = {
-    sizeof(_Clay_SizingMinMax.min),
-    sizeof(_Clay_SizingMinMax.max),
+    sizeof(((Clay_SizingMinMax*) 0)->min),
+    sizeof(((Clay_SizingMinMax*) 0)->max),
 };
 const size_t _Clay_SizingMinMax_Offsets[] = {
     offsetof(Clay_SizingMinMax, min),
@@ -157,8 +152,6 @@ const member_info_t _Clay_SizingMinMax_Member_Info[] = {
 };
 DEFINE_STRUCT_INFO(Clay_SizingMinMax);
 
-static Clay_SizingAxis _Clay_SizingAxis;
-
 /************************************************************************************/
 
 const char* _Clay_SizingAxis_Union_Members[] = {
@@ -166,8 +159,8 @@ const char* _Clay_SizingAxis_Union_Members[] = {
     "percent",
 };
 const size_t _Clay_SizingAxis_Union_Sizes[] = {
-    sizeof(_Clay_SizingAxis.size),
-    sizeof(_Clay_SizingAxis.size),
+    sizeof(((Clay_SizingAxis*) 0)->size),
+    sizeof(((Clay_SizingAxis*) 0)->size),
 };
 const size_t _Clay_SizingAxis_Union_Offsets[] = {
     0,
@@ -187,8 +180,8 @@ const char* _Clay_SizingAxis_Members[] = {
 };
 
 const size_t _Clay_SizingAxis_Sizes[] = {
-    sizeof(_Clay_SizingAxis.size),
-    sizeof(_Clay_SizingAxis.type),
+    sizeof(((Clay_SizingAxis*) 0)->size),
+    sizeof(((Clay_SizingAxis*) 0)->type),
 };
 const size_t _Clay_SizingAxis_Offsets[] = {
     offsetof(Clay_SizingAxis, size),
@@ -206,10 +199,9 @@ const char* _Clay_Sizing_Members[] = {
     "width",
     "height",
 };
-static Clay_Sizing _Clay_Sizing;
 const size_t _Clay_Sizing_Sizes[] = {
-    sizeof(_Clay_Sizing.width),
-    sizeof(_Clay_Sizing.height),
+    sizeof(((Clay_Sizing*) 0)->width),
+    sizeof(((Clay_Sizing*) 0)->height),
 };
 const size_t _Clay_Sizing_Offsets[] = {
     offsetof(Clay_Sizing, width),
@@ -230,12 +222,11 @@ const char* _Clay_Padding_Members[] = {
     "bottom",
 
 };
-static Clay_Padding _Clay_Padding;
 const size_t _Clay_Padding_Sizes[] = {
-    sizeof(_Clay_Padding.left),
-    sizeof(_Clay_Padding.right),
-    sizeof(_Clay_Padding.top),
-    sizeof(_Clay_Padding.bottom),
+    sizeof(((Clay_Padding*) 0)->left),
+    sizeof(((Clay_Padding*) 0)->right),
+    sizeof(((Clay_Padding*) 0)->top),
+    sizeof(((Clay_Padding*) 0)->bottom),
 };
 const size_t _Clay_Padding_Offsets[] = {
     offsetof(Clay_Padding, left),
@@ -257,10 +248,9 @@ const char* _Clay_ChildAlignment_Members[] = {
     "x",
     "y",
 };
-static Clay_ChildAlignment _Clay_ChildAlignment;
 const size_t _Clay_ChildAlignment_Sizes[] = {
-    sizeof(_Clay_ChildAlignment.x),
-    sizeof(_Clay_ChildAlignment.y),
+    sizeof(((Clay_ChildAlignment*) 0)->x),
+    sizeof(((Clay_ChildAlignment*) 0)->y),
 };
 const size_t _Clay_ChildAlignment_Offsets[] = {
 offsetof(Clay_ChildAlignment, x),
@@ -281,13 +271,12 @@ const char* _Clay_LayoutConfig_Members[] = {
     "childAlignment",
     "layoutDirection",
 };
-static Clay_LayoutConfig _Clay_LayoutConfig;
 const size_t _Clay_LayoutConfig_Sizes[] = {
-    sizeof(_Clay_LayoutConfig.sizing),
-    sizeof(_Clay_LayoutConfig.padding),
-    sizeof(_Clay_LayoutConfig.childGap),
-    sizeof(_Clay_LayoutConfig.childAlignment),
-    sizeof(_Clay_LayoutConfig.layoutDirection),
+    sizeof(((Clay_LayoutConfig*) 0)->sizing),
+    sizeof(((Clay_LayoutConfig*) 0)->padding),
+    sizeof(((Clay_LayoutConfig*) 0)->childGap),
+    sizeof(((Clay_LayoutConfig*) 0)->childAlignment),
+    sizeof(((Clay_LayoutConfig*) 0)->layoutDirection),
 };
 const size_t _Clay_LayoutConfig_Offsets[] = {
     offsetof(Clay_LayoutConfig, sizing),
@@ -313,12 +302,11 @@ const char* _Clay_CornerRadius_Members[] = {
     "bottomLeft",
     "bottomRight",
 };
-static Clay_CornerRadius _Clay_CornerRadius;
 const size_t _Clay_CornerRadius_Sizes[] = {
-    sizeof(_Clay_CornerRadius.topLeft),
-    sizeof(_Clay_CornerRadius.topRight),
-    sizeof(_Clay_CornerRadius.bottomLeft),
-    sizeof(_Clay_CornerRadius.bottomRight),
+    sizeof(((Clay_CornerRadius*) 0)->topLeft),
+    sizeof(((Clay_CornerRadius*) 0)->topRight),
+    sizeof(((Clay_CornerRadius*) 0)->bottomLeft),
+    sizeof(((Clay_CornerRadius*) 0)->bottomRight),
 };
 const size_t _Clay_CornerRadius_Offsets[] = {
 offsetof(Clay_CornerRadius, topLeft),
@@ -340,10 +328,9 @@ const char* _Clay_Dimensions_Members[] = {
     "width",
     "height",
 };
-static Clay_Dimensions _Clay_Dimensions;
 const size_t _Clay_Dimensions_Sizes[] = {
-    sizeof(_Clay_Dimensions.width),
-    sizeof(_Clay_Dimensions.height),
+    sizeof(((Clay_Dimensions*) 0)->width),
+    sizeof(((Clay_Dimensions*) 0)->height),
 };
 const size_t _Clay_Dimensions_Offsets[] = {
     offsetof(Clay_Dimensions, width),
@@ -361,10 +348,9 @@ const char* _Clay_ImageElementConfig_Members[] = {
     "imageData",
     "sourceDimensions",
 };
-static Clay_ImageElementConfig _Clay_ImageElementConfig;
 const size_t _Clay_ImageElementConfig_Sizes[] = {
-    sizeof(_Clay_ImageElementConfig.imageData),
-    sizeof(_Clay_ImageElementConfig.sourceDimensions),
+    sizeof(((Clay_ImageElementConfig*) 0)->imageData),
+    sizeof(((Clay_ImageElementConfig*) 0)->sourceDimensions),
 };
 const size_t _Clay_ImageElementConfig_Offsets[] = {
 offsetof(Clay_ImageElementConfig, imageData),
@@ -382,10 +368,9 @@ const char* _Clay_Vector2_Members[] = {
     "x",
     "y",
 };
-static Clay_Vector2 _Clay_Vector2;
 const size_t _Clay_Vector2_Sizes[] = {
-    sizeof(_Clay_Vector2.x),
-    sizeof(_Clay_Vector2.y),
+    sizeof(((Clay_Vector2*) 0)->x),
+    sizeof(((Clay_Vector2*) 0)->y),
 };
 const size_t _Clay_Vector2_Offsets[] = {
     offsetof(Clay_Vector2, x),
@@ -403,10 +388,9 @@ const char* _Clay_FloatingAttachPoints_Members[] = {
     "element",
     "parent",
 };
-static Clay_FloatingAttachPoints _Clay_FloatingAttachPoints;
 const size_t _Clay_FloatingAttachPoints_Sizes[] = {
-    sizeof(_Clay_FloatingAttachPoints.element),
-    sizeof(_Clay_FloatingAttachPoints.parent),
+    sizeof(((Clay_FloatingAttachPoints*) 0)->element),
+    sizeof(((Clay_FloatingAttachPoints*) 0)->parent),
 };
 const size_t _Clay_FloatingAttachPoints_Offsets[] = {
     offsetof(Clay_FloatingAttachPoints, element),
@@ -429,15 +413,14 @@ const char* _Clay_FloatingElementConfig_Members[] = {
     "pointerCaptureMode",
     "attachTo",
 };
-static Clay_FloatingElementConfig _Clay_FloatingElementConfig;
 const size_t _Clay_FloatingElementConfig_Sizes[] = {
-    sizeof(_Clay_FloatingElementConfig.offset),
-    sizeof(_Clay_FloatingElementConfig.expand),
-    sizeof(_Clay_FloatingElementConfig.parentId),
-    sizeof(_Clay_FloatingElementConfig.zIndex),
-    sizeof(_Clay_FloatingElementConfig.attachPoints),
-    sizeof(_Clay_FloatingElementConfig.pointerCaptureMode),
-    sizeof(_Clay_FloatingElementConfig.attachTo),
+    sizeof(((Clay_FloatingElementConfig*) 0)->offset),
+    sizeof(((Clay_FloatingElementConfig*) 0)->expand),
+    sizeof(((Clay_FloatingElementConfig*) 0)->parentId),
+    sizeof(((Clay_FloatingElementConfig*) 0)->zIndex),
+    sizeof(((Clay_FloatingElementConfig*) 0)->attachPoints),
+    sizeof(((Clay_FloatingElementConfig*) 0)->pointerCaptureMode),
+    sizeof(((Clay_FloatingElementConfig*) 0)->attachTo),
 };
 const size_t _Clay_FloatingElementConfig_Offsets[] = {
     offsetof(Clay_FloatingElementConfig, offset),
@@ -464,9 +447,8 @@ DEFINE_STRUCT_INFO(Clay_FloatingElementConfig);
 const char* _Clay_CustomElementConfig_Members[] = {
     "customData",
 };
-static Clay_CustomElementConfig _Clay_CustomElementConfig;
 const size_t _Clay_CustomElementConfig_Sizes[] = {
-    sizeof(_Clay_CustomElementConfig.customData),
+    sizeof(((Clay_CustomElementConfig*) 0)->customData),
 };
 const size_t _Clay_CustomElementConfig_Offsets[] = {
     offsetof(Clay_CustomElementConfig, customData),
@@ -482,10 +464,9 @@ const char* _Clay_ScrollElementConfig_Members[] = {
     "horizontal",
     "vertical",
 };
-static Clay_ScrollElementConfig _Clay_ScrollElementConfig;
 const size_t _Clay_ScrollElementConfig_Sizes[] = {
-    sizeof(_Clay_ScrollElementConfig.horizontal),
-    sizeof(_Clay_ScrollElementConfig.vertical),
+    sizeof(((Clay_ScrollElementConfig*) 0)->horizontal),
+    sizeof(((Clay_ScrollElementConfig*) 0)->vertical),
 };
 const size_t _Clay_ScrollElementConfig_Offsets[] = {
     offsetof(Clay_ScrollElementConfig, horizontal),
@@ -506,13 +487,12 @@ const char* _Clay_BorderWidth_Members[] = {
     "bottom",
     "betweenChildren",
 };
-static Clay_BorderWidth _Clay_BorderWidth;
 const size_t _Clay_BorderWidth_Sizes[] = {
-    sizeof(_Clay_BorderWidth.left),
-    sizeof(_Clay_BorderWidth.right),
-    sizeof(_Clay_BorderWidth.top),
-    sizeof(_Clay_BorderWidth.bottom),
-    sizeof(_Clay_BorderWidth.betweenChildren),
+    sizeof(((Clay_BorderWidth*) 0)->left),
+    sizeof(((Clay_BorderWidth*) 0)->right),
+    sizeof(((Clay_BorderWidth*) 0)->top),
+    sizeof(((Clay_BorderWidth*) 0)->bottom),
+    sizeof(((Clay_BorderWidth*) 0)->betweenChildren),
 };
 const size_t _Clay_BorderWidth_Offsets[] = {
     offsetof(Clay_BorderWidth, left),
@@ -536,10 +516,9 @@ const char* _Clay_BorderElementConfig_Members[] = {
     "color",
     "width",
 };
-static Clay_BorderElementConfig _Clay_BorderElementConfig;
 const size_t _Clay_BorderElementConfig_Sizes[] = {
-    sizeof(_Clay_BorderElementConfig.color),
-    sizeof(_Clay_BorderElementConfig.width),
+    sizeof(((Clay_BorderElementConfig*) 0)->color),
+    sizeof(((Clay_BorderElementConfig*) 0)->width),
 };
 const size_t _Clay_BorderElementConfig_Offsets[] = {
     offsetof(Clay_BorderElementConfig, color),
@@ -565,17 +544,16 @@ const char* _Clay_ElementDeclaration_Members[] = {
     "border",
     "userData",
 };
-static Clay_ElementDeclaration _Clay_ElementDeclaration;
 const size_t _Clay_ElementDeclaration_Sizes[] = {
-    sizeof(_Clay_ElementDeclaration.id),
-    sizeof(_Clay_ElementDeclaration.layout),
-    sizeof(_Clay_ElementDeclaration.backgroundColor),
-    sizeof(_Clay_ElementDeclaration.cornerRadius),
-    sizeof(_Clay_ElementDeclaration.image),
-    sizeof(_Clay_ElementDeclaration.floating),
-    sizeof(_Clay_ElementDeclaration.custom),
-    sizeof(_Clay_ElementDeclaration.scroll),
-    sizeof(_Clay_ElementDeclaration.border),
+    sizeof(((Clay_ElementDeclaration*) 0)->id),
+    sizeof(((Clay_ElementDeclaration*) 0)->layout),
+    sizeof(((Clay_ElementDeclaration*) 0)->backgroundColor),
+    sizeof(((Clay_ElementDeclaration*) 0)->cornerRadius),
+    sizeof(((Clay_ElementDeclaration*) 0)->image),
+    sizeof(((Clay_ElementDeclaration*) 0)->floating),
+    sizeof(((Clay_ElementDeclaration*) 0)->custom),
+    sizeof(((Clay_ElementDeclaration*) 0)->scroll),
+    sizeof(((Clay_ElementDeclaration*) 0)->border),
 };
 const size_t _Clay_ElementDeclaration_Offsets[] = {
     offsetof(Clay_ElementDeclaration, id),

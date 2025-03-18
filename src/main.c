@@ -1043,7 +1043,6 @@ int main(void)
                 fonts.info[j].id = (Clay_String) { filename_len, allocated_filename };
                 fonts.info[j].size = theme->text_types[j].fontSize;
             }
-            break;
         }
         ++i;
     }

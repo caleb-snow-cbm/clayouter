@@ -393,7 +393,7 @@ void cc_text_box(dstring_t* text, Clay_String label)
     text_boxes.items[text_boxes.size++] = text;
     bool selected = text == selected_text_box;
     CLAY({
-        .layout = { .sizing = { .width = CLAY_SIZING_GROW(60) },
+        .layout = { .sizing = { .width = CLAY_SIZING_GROW(60, 0) },
             .padding = CLAY_PADDING_ALL(4),
             .childGap = 4,
             .layoutDirection = CLAY_TOP_TO_BOTTOM },
@@ -406,7 +406,7 @@ void cc_text_box(dstring_t* text, Clay_String label)
         const Clay_BorderElementConfig no_border
             = { .color = theme.selected, .width = CLAY_BORDER_OUTSIDE(0) };
         CLAY({
-            .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(32) },
+            .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(32, 0) },
                 .padding = CLAY_PADDING_ALL(4) },
             .backgroundColor = theme.clickable,
             .border = selected ? border : no_border,
@@ -497,7 +497,7 @@ void cc_tab_page(tab_page_t* page, void* user_data)
             for (size_t i = 0; i < page->num_tabs; ++i) {
                 bool selected = i == page->selected_tab;
                 CLAY({
-                    .layout = { .sizing = { .width = CLAY_SIZING_FIT(30) },
+                    .layout = { .sizing = { .width = CLAY_SIZING_FIT(30, 0) },
                         .padding = CLAY_PADDING_ALL(4),
                         .childGap = 4 },
                     .backgroundColor = selected ? theme.selected
@@ -601,8 +601,8 @@ void cc_color_picker(Clay_ImageElementConfig im, size_t index)
 {
     CLAY({
         .id = CLAY_IDI("color_picker", index),
-        .layout = { .sizing = { .width = CLAY_SIZING_FIT(COLOR_PICKER_WIDTH),
-                                .height = CLAY_SIZING_FIT(COLOR_PICKER_HEIGHT) },
+        .layout = { .sizing = { .width = CLAY_SIZING_FIT(COLOR_PICKER_WIDTH, 0),
+                                .height = CLAY_SIZING_FIT(COLOR_PICKER_HEIGHT, 0) },
                     .padding = CLAY_PADDING_ALL(8),
                     .childGap = 8,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM },
@@ -613,8 +613,8 @@ void cc_color_picker(Clay_ImageElementConfig im, size_t index)
         .border = { .color = theme.highlight, .width = CLAY_BORDER_OUTSIDE(1) }})
     {
         CLAY({ EMPTY }) {
-            CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(im.sourceDimensions.width),
-                                        .height = CLAY_SIZING_FIT(im.sourceDimensions.height) } },
+            CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(im.sourceDimensions.width, 0),
+                                        .height = CLAY_SIZING_FIT(im.sourceDimensions.height, 0) } },
                 .image = im }) {
                 // picker
                 Clay_OnHover(color_picker_set_color, (intptr_t) index);
@@ -679,7 +679,7 @@ void cc_color_selector(Clay_ImageElementConfig im, color_string_t* color)
         cc_text_box(&color->b, CLAY_STRING("B"));
         cc_text_box(&color->a, CLAY_STRING("A"));
         CLAY({
-            .layout = { .sizing = { .width = CLAY_SIZING_GROW(50) },
+            .layout = { .sizing = { .width = CLAY_SIZING_GROW(50, 0) },
                 .padding = CLAY_PADDING_ALL(4),
                 .childGap = 4,
                 .layoutDirection = CLAY_TOP_TO_BOTTOM },
