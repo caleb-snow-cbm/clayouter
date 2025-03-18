@@ -643,6 +643,7 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
     case 3:
         return me;
     default:
+        REPORT_FAILURE(ctx, "CLAY, CLAY_TEXT, Clay_OnHover, or }");
         goto fail;
     }
     return me;

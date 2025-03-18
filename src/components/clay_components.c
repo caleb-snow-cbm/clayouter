@@ -148,10 +148,10 @@ static void mini_selection_menu_callback(Clay_ElementId id, Clay_PointerData dat
 static void selection_menu_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        sm_item_t info = sm_items.items[user_data];
         sm_visible = false;
-        info.cb(id, data, info.user_data);
     }
+    sm_item_t info = sm_items.items[user_data];
+    info.cb(id, data, info.user_data);
 }
 
 static void color_picker_set_brightness(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
@@ -262,13 +262,17 @@ static void calculate_color_string(size_t index)
 
 static void calculate_color_offsets(size_t index)
 {
+    const size_t min = 0;
+    const size_t mid = 1;
+    const size_t max = 2;
     Clay_Color c = cc_parse_color(cpi.items[index].string);
     cpi.items[index].color = c;
     float colors[3] = { c.r, c.g, c.b };
-    if (colors[0] > colors[1]) { float temp = colors[0]; colors[0] = colors[1]; colors[1] = temp; }
-    if (colors[1] > colors[2]) { float temp = colors[1]; colors[1] = colors[2]; colors[2] = temp; }
-    if (colors[0] > colors[1]) { float temp = colors[0]; colors[0] = colors[1]; colors[1] = temp; }
-    float brightness = colors[2] / 255.0f;
+    // 3 element sort
+    if (colors[min] > colors[mid]) { float temp = colors[min]; colors[min] = colors[mid]; colors[mid] = temp; }
+    if (colors[mid] > colors[max]) { float temp = colors[mid]; colors[mid] = colors[max]; colors[max] = temp; }
+    if (colors[min] > colors[mid]) { float temp = colors[min]; colors[min] = colors[mid]; colors[mid] = temp; }
+    float brightness = colors[max] / 255.0f;
     cpi.items[index].brightness = -(brightness - 0.5f) * COLOR_PICKER_HEIGHT;
     if (brightness == 0.0f) {
         cpi.items[index].x = 0.0f;
@@ -278,29 +282,29 @@ static void calculate_color_offsets(size_t index)
     c.r /= brightness;
     c.g /= brightness;
     c.b /= brightness;
-    colors[0] /= brightness;
-    colors[1] /= brightness;
-    colors[2] /= brightness;
-    cpi.items[index].y = colors[0] / 255.0f;
+    colors[min] /= brightness;
+    colors[mid] /= brightness;
+    colors[max] /= brightness;
+    cpi.items[index].y = colors[min] / 255.0f;
     if (cpi.items[index].y == 1) {
         cpi.items[index].x = 0.0f;
         return;
     }
-    float x_offset = (255.0f - (255.0f - colors[1]) / (1 - cpi.items[index].y)) / (255.0f * 6.0f);
-    if (c.r == colors[2]) {
-        if (c.g == colors[1]) {
+    float x_offset = (255.0f - (255.0f - colors[mid]) / (1 - cpi.items[index].y)) / (255.0f * 6.0f);
+    if (c.r == colors[max]) {
+        if (c.g == colors[mid]) {
             cpi.items[index].x = x_offset;
         } else {
             cpi.items[index].x = 1 - x_offset;
         }
-    } else if (c.g == colors[2]) {
-        if (c.r == colors[1]) {
+    } else if (c.g == colors[max]) {
+        if (c.r == colors[mid]) {
             cpi.items[index].x = (2.0f / 6.0f) - x_offset;
         } else {
             cpi.items[index].x = (2.0f / 6.0f) + x_offset;
         }
     } else {
-        if (c.g == colors[1]) {
+        if (c.g == colors[mid]) {
             cpi.items[index].x = (4.0f / 6.0f) - x_offset;
         } else {
             cpi.items[index].x = (4.0f / 6.0f) + x_offset;

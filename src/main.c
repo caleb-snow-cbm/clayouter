@@ -135,6 +135,7 @@ static bool import_selection_visible = false;
 static cc_selection_menu_t child_selection_menu = {
     .label = CLAY_STRING_CONST("Child elements")
 };
+static ui_element_t* selection_box_parent = NULL;
 
 static fonts_t fonts;
 static FilePathList font_files;
@@ -227,7 +228,8 @@ void dynamic_string_copy(dstring_t* dst, Clay_String src)
         assert(tmp);
         dst->s.chars = (char*) tmp;
     }
-    memcpy((char*) dst->s.chars, src.chars, src.length);
+    if (src.chars)
+        memcpy((char*) dst->s.chars, src.chars, src.length);
     ((char*)dst->s.chars)[src.length] = '\0';
     dst->s.length = src.length;
 }
@@ -301,7 +303,7 @@ void select_font_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
     load_properties();
 }
 
-Clay_LayoutConfig parse_layout(layout_properties_t* layout)
+Clay_LayoutConfig save_layout(layout_properties_t* layout)
 {
     Clay_LayoutConfig ret = { 0 };
     ret.sizing.width.type = layout->sizing_width_type;
@@ -405,7 +407,7 @@ static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* s
         dynamic_string_copy(&dst->callback, src->callback);
 }
 
-Clay_TextElementConfig parse_text_config(const text_properties_t* src)
+Clay_TextElementConfig save_text_config(const text_properties_t* src)
 {
     Clay_TextElementConfig ret = { 0 };
     if (src->font_size.s.length)
@@ -428,7 +430,7 @@ Clay_TextElementConfig parse_text_config(const text_properties_t* src)
     return ret;
 }
 
-Clay_CornerRadius parse_corner_radius(const general_properties_t* src)
+Clay_CornerRadius save_corner_radius(const general_properties_t* src)
 {
     Clay_CornerRadius ret = { 0 };
     if (src->corner_radius_top_left.s.length)
@@ -442,7 +444,7 @@ Clay_CornerRadius parse_corner_radius(const general_properties_t* src)
     return ret;
 }
 
-Clay_FloatingElementConfig parse_floating(const floating_properties_t* src)
+Clay_FloatingElementConfig save_floating(const floating_properties_t* src)
 {
     Clay_FloatingElementConfig ret = { 0 };
     if (src->offset_x.s.length)
@@ -464,7 +466,7 @@ Clay_FloatingElementConfig parse_floating(const floating_properties_t* src)
     return ret;
 }
 
-Clay_BorderElementConfig parse_border(const border_properties_t* src)
+Clay_BorderElementConfig save_border(const border_properties_t* src)
 {
     Clay_BorderElementConfig ret = { 0 };
     ret.color = cc_parse_color(&src->color);
@@ -482,7 +484,7 @@ Clay_BorderElementConfig parse_border(const border_properties_t* src)
     return ret;
 }
 
-void parse_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
+void save_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
 {
     clay_string_copy(&dst->callback, src->callback);
     dst->enabled = src->enable;
@@ -505,18 +507,18 @@ void save_properties(void)
                 (size_t) element->id.stringId.length);
             previous_length = selected_d_properties.general.id.s.length;
         }
-        element->layout = parse_layout(&selected_d_properties.layout);
+        element->layout = save_layout(&selected_d_properties.layout);
         element->backgroundColor = cc_parse_color(&selected_d_properties.general.background_color);
-        element->cornerRadius = parse_corner_radius(&selected_d_properties.general);
-        element->floating = parse_floating(&selected_d_properties.floating);
+        element->cornerRadius = save_corner_radius(&selected_d_properties.general);
+        element->floating = save_floating(&selected_d_properties.floating);
         element->scroll.horizontal = selected_d_properties.general.scroll_horizontal;
         element->scroll.vertical = selected_d_properties.general.scroll_vertical;
-        element->border = parse_border(&selected_d_properties.border);
-        parse_on_hover(&selected_ui_element->on_hover, &selected_d_properties.on_hover);
+        element->border = save_border(&selected_d_properties.border);
+        save_on_hover(&selected_ui_element->on_hover, &selected_d_properties.on_hover);
         selected_ui_element->on_hover.non_hovered_color = element->backgroundColor;
     } else if (selected_ui_element->type == UI_ELEMENT_TEXT) {
         dynamic_string_copy(&selected_ui_element->text, selected_t_properties.text.s);
-        *selected_ui_element->text_config = parse_text_config(&selected_t_properties);
+        *selected_ui_element->text_config = save_text_config(&selected_t_properties);
     }
 }
 
@@ -777,6 +779,8 @@ void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t us
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         selected_ui_element = (ui_element_t*) user_data;
         load_properties();
+    } else {
+        selection_box_parent = (ui_element_t*) user_data;
     }
 }
 
@@ -911,6 +915,20 @@ void close_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t u
     }
 }
 
+static void selection_box(void)
+{
+    Clay_Color c = theme->selected;
+    c.a = 100;
+    CLAY({
+        .id = CLAY_ID("Selection box"),
+        .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
+                                .height = CLAY_SIZING_GROW(0) } },
+        .backgroundColor = c,
+        .floating = { .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
+                    .attachTo = CLAY_ATTACH_TO_PARENT }
+    });
+}
+
 void import_selection(void)
 {
     static dstring_t path = { 0 };
@@ -966,6 +984,9 @@ void configure_element(ui_element_t* me)
         Clay_OnHover(hover_callback, (intptr_t) me);
         if (dropdown_parent == me) {
             dropdown(me);
+        }
+        if (selection_box_parent == me) {
+            selection_box();
         }
         for (size_t i = 0; i < me->num_children; ++i) {
             configure_element(me->children[i]);
@@ -1059,6 +1080,8 @@ int main(void)
     color_picker_im.sourceDimensions.height = (float) color_picker_texture.height;
 
     while (!WindowShouldClose()) {
+        selection_box_parent = NULL;
+
         bool left_mouse = IsMouseButtonDown(0);
         bool right_mouse = IsMouseButtonDown(1);
         Clay_SetLayoutDimensions((Clay_Dimensions) { (float) GetScreenWidth(),
