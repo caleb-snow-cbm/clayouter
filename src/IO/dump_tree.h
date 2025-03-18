@@ -3,6 +3,6 @@
 
 #include "ui_element.h"
 
-void dump_tree(const char* filename, ui_element_t* root, int depth);
+void dump_tree(const char* filename, ui_element_t* root);
 
 #endif // DUMP_TREE_H

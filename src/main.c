@@ -16,8 +16,8 @@
 #include "IO/dump_tree.h"
 #include "IO/parse_tree.h"
 
-#define WINDOW_WIDTH (1024)
-#define WINDOW_HEIGHT (768)
+#define WINDOW_WIDTH (1600)
+#define WINDOW_HEIGHT (900)
 
 #ifdef _WIN32
 #define numberof(x) _countof(x)
@@ -117,6 +117,12 @@ typedef struct {
     size_t capacity;
 } fonts_t;
 
+typedef enum {
+    FSV_NONE,
+    FSV_IMPORT,
+    FSV_EXPORT
+} file_selection_visibility_t;
+
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
 
 static const theme_t* theme;
@@ -131,7 +137,7 @@ static text_properties_t selected_t_properties;
 static ui_element_t* selected_ui_element = NULL;
 static ui_element_t* root;
 static Clay_ImageElementConfig color_picker_im;
-static bool import_selection_visible = false;
+static file_selection_visibility_t file_selection_visible = FSV_NONE;
 static cc_selection_menu_t child_selection_menu = {
     .label = CLAY_STRING_CONST("Child elements")
 };
@@ -864,7 +870,7 @@ void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t 
         tmp->parent = parent;
         selected_ui_element = tmp;
         load_properties();
-        import_selection_visible = false;
+        file_selection_visible = FSV_NONE;
         dropdown_parent = NULL;
     }
 }
@@ -873,7 +879,8 @@ void remove_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t 
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        ui_element_remove((ui_element_t*) user_data);
+        if ((ui_element_t*) user_data != root)
+            ui_element_remove((ui_element_t*) user_data);
         dropdown_parent = NULL;
     }
 }
@@ -891,27 +898,28 @@ void properties_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user
 void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
-    (void) user_data;
+    dstring_t* path = (dstring_t*) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        dump_tree("output.c", root, 0);
+        dump_tree(path->s.chars, root);
+        dropdown_parent = NULL;
+        file_selection_visible = FSV_NONE;
     }
 }
 
-void open_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+void open_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        file_selection_visible = (file_selection_visibility_t) user_data;
+    }
+}
+
+void close_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        import_selection_visible = true;
-    }
-}
-
-void close_import_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
-{
-    (void) id;
-    (void) user_data;
-    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        import_selection_visible = false;
+        file_selection_visible = FSV_NONE;
     }
 }
 
@@ -929,7 +937,7 @@ static void selection_box(void)
     });
 }
 
-void import_selection(void)
+void file_selection(on_hover_cb_t select_callback, Clay_String label)
 {
     static dstring_t path = { 0 };
     CLAY( { .id = CLAY_ID("import_selection"),
@@ -943,10 +951,10 @@ void import_selection(void)
                           .attachPoints = { .element = CLAY_ATTACH_POINT_CENTER_CENTER,
                                             .parent = CLAY_ATTACH_POINT_CENTER_CENTER },
                           .attachTo = CLAY_ATTACH_TO_ROOT }}) {
-        cc_text_box(&path, CLAY_STRING("File to import:"));
+        cc_text_box(&path, CLAY_STRING("Enter filename:"));
         CLAY({ .layout = { .childGap = 8 }}) {
-            cc_button(CLAY_STRING("Import"), import_element_callback, (intptr_t) &path);
-            cc_button(CLAY_STRING("Cancel"), close_import_selection, 0);
+            cc_button(label, select_callback, (intptr_t) &path);
+            cc_button(CLAY_STRING("Cancel"), close_file_selection, 0);
         }
     }
 }
@@ -961,10 +969,10 @@ void dropdown(ui_element_t* parent)
         cc_button(
             CLAY_STRING("Insert element before"), insert_before_callback, (intptr_t) parent->parent);
         cc_button(CLAY_STRING("Add text"), add_text_callback, (intptr_t) parent);
-        cc_button(CLAY_STRING("Import element"), open_import_selection, (intptr_t) parent);
+        cc_button(CLAY_STRING("Import element"), open_file_selection, (intptr_t) FSV_IMPORT);
         cc_button(CLAY_STRING("Remove element"), remove_element_callback, (intptr_t) parent);
         cc_button(CLAY_STRING("Properties"), properties_callback, (intptr_t) parent);
-        cc_button(CLAY_STRING("Export layout"), dump_callback, 0);
+        cc_button(CLAY_STRING("Export layout"), open_file_selection, (intptr_t) FSV_EXPORT);
     }
 }
 
@@ -1112,8 +1120,10 @@ int main(void)
         }
         configure_element(root);
 
-        if (import_selection_visible) {
-            import_selection();
+        if (file_selection_visible == FSV_IMPORT) {
+            file_selection(import_element_callback, CLAY_STRING("Import"));
+        } else if (file_selection_visible == FSV_EXPORT) {
+            file_selection(dump_callback, CLAY_STRING("Export"));
         }
 
         BeginDrawing();

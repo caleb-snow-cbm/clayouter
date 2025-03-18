@@ -227,13 +227,13 @@ void dump_tree_r(FILE* f, ui_element_t* root, int depth)
     }
 }
 
-void dump_tree(const char* filename, ui_element_t* root, int depth)
+void dump_tree(const char* filename, ui_element_t* root)
 {
     FILE* f = fopen(filename, "w");
     if (f == NULL) {
         fprintf(stderr, "Unable to open output file %s\n", filename);
         return;
     }
-    dump_tree_r(f, root, depth);
+    dump_tree_r(f, root, 0);
     fclose(f);
 }
