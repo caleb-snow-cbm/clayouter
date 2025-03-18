@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -122,6 +123,15 @@ typedef enum {
     FSV_IMPORT,
     FSV_EXPORT
 } file_selection_visibility_t;
+
+typedef enum {
+    ADJUST_NONE,
+    ADJUST_LEFT,
+    ADJUST_RIGHT,
+    ADJUST_TOP,
+    ADJUST_BOTTOM,
+    ADJUST_POSITION,
+} adjustment_t;
 
 #define DEFAULT_CORNER_RADIUS CLAY_CORNER_RADIUS(8)
 
@@ -251,13 +261,105 @@ void clay_string_copy(Clay_String* dst, dstring_t src)
     }
 }
 
+static void adjust_element(ui_element_t* element,
+                           Clay_ElementData data,
+                           adjustment_t adjustment,
+                           Clay_Vector2 pos)
+{
+    Clay_Sizing* sizing = &element->ptr->layout.sizing;
+    Clay_Vector2 sixteenth =  { .x = data.boundingBox.width / 16,
+                                .y = data.boundingBox.height / 16 };
+    Clay_Vector2 deviation = { 0 };
+    switch (adjustment) {
+    case ADJUST_LEFT:
+        if (element->parent == NULL ||
+            element->parent->ptr->layout.layoutDirection == CLAY_LEFT_TO_RIGHT ||
+            sizing->width.type == CLAY__SIZING_TYPE_FIT) {
+            return;
+        }
+        deviation.x = (data.boundingBox.x + sixteenth.x) - pos.x;
+        break;
+    case ADJUST_RIGHT:
+        deviation.x = pos.x - (data.boundingBox.x + data.boundingBox.width - sixteenth.x);
+        if (sizing->width.type == CLAY__SIZING_TYPE_FIT) {
+            if (deviation.x >= 0 || sizing->width.size.minMax.min >= data.boundingBox.width) {
+                sizing->width.size.minMax.min = data.boundingBox.width + deviation.x;
+            }
+        } else if (sizing->width.type == CLAY__SIZING_TYPE_FIXED) {
+            sizing->width.size.minMax.min = data.boundingBox.width + deviation.x;
+            sizing->width.size.minMax.max = data.boundingBox.width + deviation.x;
+        } else if (sizing->width.type == CLAY__SIZING_TYPE_PERCENT) {
+            float parent_width = data.boundingBox.width / sizing->width.size.percent;
+            float new_size = data.boundingBox.width + deviation.x;
+            sizing->width.size.percent = new_size / parent_width; // TODO: adjust all other children?
+        }
+        break;
+    case ADJUST_BOTTOM:
+        deviation.y = pos.y - (data.boundingBox.y + data.boundingBox.height - sixteenth.y);
+        if (sizing->height.type == CLAY__SIZING_TYPE_FIT) {
+            if (deviation.y >= 0 || sizing->height.size.minMax.min >= data.boundingBox.height) {
+                sizing->height.size.minMax.min = data.boundingBox.height + deviation.y;
+            }
+        } else if (sizing->height.type == CLAY__SIZING_TYPE_FIXED) {
+            sizing->height.size.minMax.min = data.boundingBox.height + deviation.x;
+            sizing->height.size.minMax.max = data.boundingBox.height + deviation.x;
+        } else if (sizing->height.type == CLAY__SIZING_TYPE_PERCENT) {
+            float parent_height = data.boundingBox.height / sizing->height.size.percent;
+            float new_size = data.boundingBox.height + deviation.y;
+            sizing->height.size.percent = new_size / parent_height; // TODO: adjust all other children?
+        }
+        break;
+    case ADJUST_POSITION:
+        if (element->ptr->floating.attachTo == CLAY_ATTACH_TO_NONE) {
+            return;
+        }
+        Vector2 center = { .x = data.boundingBox.x + (data.boundingBox.width / 2),
+                           .y = data.boundingBox.y + (data.boundingBox.height / 2) };
+        deviation.x = pos.x - center.x;
+        deviation.y = pos.y - center.y;
+        element->ptr->floating.offset.x += deviation.x;
+        element->ptr->floating.offset.y += deviation.y;
+    default: break;
+    }
+}
+
+static adjustment_t get_adjust_type(Clay_Vector2 mouse_pos, Clay_BoundingBox element)
+{
+    float eighth_w = element.width / 8;
+    float eighth_h = element.height / 8;
+    Clay_Vector2 center = { .x = element.x + (element.width / 2),
+                            .y = element.y + (element.height/ 2) };
+
+    if (mouse_pos.x - element.x < eighth_w) {
+        return ADJUST_LEFT;
+    } else if ((element.x + element.width) - mouse_pos.x < eighth_w) {
+        return ADJUST_RIGHT;
+    } else if (mouse_pos.y - element.y < eighth_h) {
+        return ADJUST_TOP;
+    } else if ((element.y + element.height) - mouse_pos.y < eighth_h) {
+        return ADJUST_BOTTOM;
+    } else if (fabsf(mouse_pos.x - center.x) < eighth_w &&
+            fabsf(mouse_pos.y - center.y)) {
+        return ADJUST_POSITION;
+    }
+    return ADJUST_NONE;
+}
+
 void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
-    (void) user_data;
-    if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME && id.id != dropdown_menu.id.id) {
+    static adjustment_t adjustment;
+    static ui_element_t* adjusted_element = NULL;
+    if (data.state == CLAY_POINTER_DATA_PRESSED &&
+        adjusted_element == (ui_element_t*) user_data) {
+        adjust_element(adjusted_element, Clay_GetElementData(id), adjustment, data.position);
+    } else if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME && id.id != dropdown_menu.id.id) {
         dropdown_parent = NULL;
-    }
-    if (data.right_state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        Clay_ElementData e_data = Clay_GetElementData(id);
+        adjustment = get_adjust_type(data.position, e_data.boundingBox);
+        if (adjustment != ADJUST_NONE) {
+            adjusted_element = (ui_element_t*) user_data;
+        }
+    } else if (data.right_state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         dropdown_menu.floating.offset.x = data.position.x;
         dropdown_menu.floating.offset.y = data.position.y;
         dropdown_parent = (ui_element_t*) user_data;
@@ -1005,19 +1107,8 @@ void configure_element(ui_element_t* me)
     }
 }
 
-int main(void)
+static void init_fonts(void)
 {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Clayouter");
-    SetTargetFPS(60);
-    uint32_t clay_memory_size = Clay_MinMemorySize();
-    void* clay_memory = malloc(clay_memory_size);
-    Clay_Arena clay_arena = Clay_CreateArenaWithCapacityAndMemory(clay_memory_size, clay_memory);
-
-    Clay_ErrorHandler err = { .errorHandlerFunction = clay_error, .userData = NULL };
-    Clay_Initialize(clay_arena, (Clay_Dimensions) { WINDOW_WIDTH, WINDOW_HEIGHT }, err);
-
-    theme = cc_get_theme();
     font_files = LoadDirectoryFiles("resources");
     const char* default_font = "Roboto-Regular";
     fonts.capacity = theme->text_types_count;
@@ -1035,6 +1126,7 @@ int main(void)
         const char* filename = GetFileNameWithoutExt(font_files.paths[i]);
         if (!strcmp(filename, default_font)) {
             size_t filename_len = strlen(filename);
+            // this memory is leaked, but that's fine, it's only allocated at init
             char* allocated_filename = malloc(filename_len + 1);
             assert(allocated_filename);
             strcpy(allocated_filename, filename);
@@ -1062,14 +1154,10 @@ int main(void)
     }
 
     Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts.fonts);
+}
 
-    root = ui_element_insert_after(NULL, NULL, UI_ELEMENT_DECLARATION);
-    root->ptr->layout.sizing = (Clay_Sizing) { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) };
-    root->ptr->id.stringId.chars = malloc(sizeof("root"));
-    assert(root->ptr->id.stringId.chars);
-    strcpy((char*) root->ptr->id.stringId.chars, "root");
-    root->ptr->id.stringId.length = sizeof("root") - 1;
-
+static void init_dropdown(void)
+{
     dropdown_menu.id = CLAY_ID("dropdown");
 
     dropdown_menu.layout.padding = CLAY_PADDING_ALL(8);
@@ -1081,6 +1169,32 @@ int main(void)
     dropdown_menu.floating.zIndex = INT16_MAX - 10;
     dropdown_menu.border.color = theme->highlight;
     dropdown_menu.border.width = (Clay_BorderWidth) CLAY_BORDER_OUTSIDE(1);
+}
+
+int main(void)
+{
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Clayouter");
+    SetTargetFPS(60);
+    uint32_t clay_memory_size = Clay_MinMemorySize();
+    void* clay_memory = malloc(clay_memory_size);
+    Clay_Arena clay_arena = Clay_CreateArenaWithCapacityAndMemory(clay_memory_size, clay_memory);
+
+    Clay_ErrorHandler err = { .errorHandlerFunction = clay_error, .userData = NULL };
+    Clay_Initialize(clay_arena, (Clay_Dimensions) { WINDOW_WIDTH, WINDOW_HEIGHT }, err);
+
+    theme = cc_get_theme();
+    init_fonts();
+
+    root = ui_element_insert_after(NULL, NULL, UI_ELEMENT_DECLARATION);
+    root->ptr->layout.sizing = (Clay_Sizing) { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) };
+    root->ptr->id.stringId.chars = malloc(sizeof("root"));
+    assert(root->ptr->id.stringId.chars);
+    strcpy((char*) root->ptr->id.stringId.chars, "root");
+    root->ptr->id.stringId.length = sizeof("root") - 1;
+
+    init_dropdown();
+
     Texture2D color_picker_texture = LoadTexture("resources/color_picker.png");
     color_picker_im.imageData = &color_picker_texture;
     color_picker_im.sourceDimensions.width = (float) color_picker_texture.width;
@@ -1093,10 +1207,12 @@ int main(void)
         bool right_mouse = IsMouseButtonDown(1);
         Clay_SetLayoutDimensions((Clay_Dimensions) { (float) GetScreenWidth(),
                                                      (float) GetScreenHeight() });
-        Clay_SetPointerStateEx(
-            RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMousePosition()), left_mouse, right_mouse);
-        Clay_UpdateScrollContainers(
-            true, RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMouseWheelMoveV()), GetFrameTime());
+        Clay_SetPointerStateEx(RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMousePosition()),
+                               left_mouse,
+                               right_mouse);
+        Clay_UpdateScrollContainers(true,
+                                    RAYLIB_VECTOR_TO_CLAY_VECTOR(GetMouseWheelMoveV()),
+                                    GetFrameTime());
 
         int key = GetKeyPressed();
         if (key && cc_get_selected_text_box()) {
