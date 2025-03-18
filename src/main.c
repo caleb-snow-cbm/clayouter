@@ -16,17 +16,10 @@
 #include "ui_element.h"
 #include "IO/dump_tree.h"
 #include "IO/parse_tree.h"
+#include "utilities.h"
 
 #define WINDOW_WIDTH (1600)
 #define WINDOW_HEIGHT (900)
-
-#ifdef _WIN32
-#define numberof(x) _countof(x)
-#define EMPTY    0
-#else
-#define numberof(x) (sizeof(x) / sizeof(*x))
-#define EMPTY
-#endif
 
 typedef struct {
     dstring_t id;
@@ -398,8 +391,8 @@ static void select_font_callback(Clay_ElementId id, Clay_PointerData data, intpt
 
     if (fonts.count == fonts.capacity) {
         fonts.capacity *= 2;
-        fonts.fonts = realloc(fonts.fonts, sizeof(*fonts.fonts) * fonts.capacity);
-        fonts.info = realloc(fonts.info, sizeof(*fonts.info) * fonts.capacity);
+        REALLOC_ASSERT(fonts.fonts, sizeof(*fonts.fonts) * fonts.capacity);
+        REALLOC_ASSERT(fonts.info, sizeof(*fonts.info) * fonts.capacity);
         Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts.fonts);
     }
     size_t index = fonts.count;
@@ -444,9 +437,7 @@ static Clay_LayoutConfig save_layout(layout_properties_t* layout)
         int necessary_cap = snprintf(NULL, 0, format, (src));                                      \
         if ((dst).capacity < necessary_cap + 1) {                                                  \
             (dst).capacity = necessary_cap + 1;                                                    \
-            void* tmp = realloc((char*) (dst).s.chars, (dst).capacity + 1);                        \
-            assert(tmp);                                                                           \
-            (dst).s.chars = tmp;                                                                   \
+            REALLOC_ASSERT((char*) (dst).s.chars, (dst).capacity + 1);                             \
         }                                                                                          \
         (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                            \
     } while (0)
@@ -610,6 +601,7 @@ static void save_properties(void)
             char* before = (char*) element->id.stringId.chars;
             element->id = Clay__HashString(selected_d_properties.general.id.s, 0, 0);
             void* tmp = realloc(before, (size_t) element->id.stringId.length);
+            assert(tmp);
             element->id.stringId.chars = tmp;
             memcpy((char*) element->id.stringId.chars, selected_d_properties.general.id.s.chars,
                 (size_t) element->id.stringId.length);
@@ -897,10 +889,10 @@ static void show_children(ui_element_t* e)
     if (e->num_children > child_capacity) {
         size_t old_cap = child_capacity;
         child_capacity = e->num_children;
-        child_selection_menu.options = realloc(child_selection_menu.options, sizeof(Clay_String) * child_capacity);
+        REALLOC_ASSERT(child_selection_menu.options, sizeof(Clay_String) * child_capacity);
         memset(child_selection_menu.options + old_cap, 0, sizeof(Clay_String) * (child_capacity - old_cap));
-        child_selection_menu.cbs = realloc(child_selection_menu.cbs, sizeof(on_hover_cb_t) * child_capacity);
-        child_selection_menu.user_data = realloc(child_selection_menu.user_data, sizeof(intptr_t) * child_capacity);
+        REALLOC_ASSERT(child_selection_menu.cbs, sizeof(on_hover_cb_t) * child_capacity);
+        REALLOC_ASSERT(child_selection_menu.user_data, sizeof(intptr_t) * child_capacity);
     }
     for (size_t i = 0; i < e->num_children; ++i) {
         if (child_selection_menu.options[i].length == 0) {
@@ -964,8 +956,7 @@ static void import_element_callback(Clay_ElementId id, Clay_PointerData data, in
     if (tmp) {
         ui_element_t* parent = dropdown_parent;
         parent->num_children++;
-        parent->children = realloc(parent->children, sizeof(*parent->children) * parent->num_children);
-        assert(parent->children);
+        REALLOC_ASSERT(parent->children, sizeof(*parent->children) * parent->num_children);
         parent->children[parent->num_children - 1] = tmp;
         tmp->parent = parent;
         selected_ui_element = tmp;

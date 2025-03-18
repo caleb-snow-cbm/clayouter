@@ -8,6 +8,7 @@
 #include "clay_enum_names.h"
 #include "clay_struct_names.h"
 #include "ui_element.h"
+#include "utilities.h"
 
 #include "stb_c_lexer_config.h"
 #define STB_C_LEXER_IMPLEMENTATION
@@ -543,10 +544,10 @@ static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* in
 static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)
 {
     EXPECT_REQUIRED(ctx, "(");
-    ui_element_t* me = (ui_element_t*) malloc(sizeof *me);
+    ui_element_t* me = (ui_element_t*) malloc_assert(sizeof *me);
     ctx->me = me;
     memset(me, 0, sizeof *me);
-    me->ptr = (Clay_ElementDeclaration*) malloc(sizeof *me->ptr);
+    me->ptr = (Clay_ElementDeclaration*) malloc_assert(sizeof *me->ptr);
     memset(me->ptr, 0, sizeof *me->ptr);
     if (!parse_struct(ctx, (uint8_t*) me->ptr, STRUCT_INFO(Clay_ElementDeclaration))) goto fail;
     me->on_hover.non_hovered_color = me->ptr->backgroundColor;
@@ -562,7 +563,7 @@ static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)
         if (child && child != (void*) SIZE_MAX) {
             child->parent = me;
             me->num_children++;
-            me->children = realloc(me->children, sizeof(*me->children) * me->num_children);
+            REALLOC_ASSERT(me->children, sizeof(*me->children) * me->num_children);
             me->children[me->num_children - 1] = child;
         }
     } while (child);
@@ -577,11 +578,11 @@ static ui_element_t* parse_text(parse_ctx_t* ctx)
     ui_element_t* me = NULL;
     EXPECT_REQUIRED(ctx, "CLAY_STRING");
     EXPECT_REQUIRED(ctx, "(");
-    me = (ui_element_t*) malloc(sizeof(*me));
+    me = (ui_element_t*) malloc_assert(sizeof(*me));
     memset(me, 0, sizeof(*me));
     me->type = UI_ELEMENT_TEXT;
     me->text_config = 0;
-    me->text_config = (Clay_TextElementConfig*) malloc(sizeof(*me->text_config));
+    me->text_config = (Clay_TextElementConfig*) malloc_assert(sizeof(*me->text_config));
     memset(me->text_config, 0, sizeof(*me->text_config));
     if (!parse_string_literal(ctx, &me->text)) goto fail;
     EXPECT_REQUIRED(ctx, ")");
@@ -614,7 +615,7 @@ static bool parse_on_hover(parse_ctx_t* ctx)
         return false;
     }
     ctx->parent->on_hover.callback.length = ctx->lexer->string_len;
-    ctx->parent->on_hover.callback.chars = malloc(ctx->lexer->string_len + 1);
+    ctx->parent->on_hover.callback.chars = malloc_assert(ctx->lexer->string_len + 1);
     strcpy((char*) ctx->parent->on_hover.callback.chars, ctx->lexer->string);
     if (!prev) {
         ctx->parent->on_hover.hovered_color = ctx->parent->ptr->backgroundColor;

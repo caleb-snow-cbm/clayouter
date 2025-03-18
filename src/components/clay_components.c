@@ -7,6 +7,7 @@
 
 #include "clay.h"
 #include "clay_components.h"
+#include "utilities.h"
 
 #ifdef _WIN32
 #define EMPTY    0
@@ -138,7 +139,7 @@ static void open_mini_selection_menu(Clay_ElementId id, Clay_PointerData data, i
 static void mini_selection_menu_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
-    assert(selection_menu_item);
+    if (selection_menu_item == NULL) return;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         *selection_menu_item = (uint8_t) user_data;
         selection_menu_item = NULL;
@@ -387,7 +388,7 @@ void cc_text_box(dstring_t* text, Clay_String label)
             text_boxes.capacity = 4;
         }
         text_boxes.capacity *= 2;
-        text_boxes.items = realloc(text_boxes.items, sizeof(void*) * text_boxes.capacity);
+        REALLOC_ASSERT(text_boxes.items, sizeof(void*) * text_boxes.capacity);
         assert(text_boxes.items);
     }
     text_boxes.items[text_boxes.size++] = text;
@@ -444,7 +445,7 @@ void cc_text_box_append(dstring_t* text, char c)
         } else {
             text->capacity *= 2;
         }
-        text->s.chars = realloc((char*) text->s.chars, (size_t) text->capacity);
+        REALLOC_ASSERT((char*) text->s.chars, (size_t) text->capacity);
         memset((char*) &text->s.chars[text->s.length], 0, (size_t) (text->capacity - text->s.length));
     }
     ((char*) text->s.chars)[text->s.length++] = c;
@@ -586,7 +587,7 @@ void cc_selection_menu(cc_selection_menu_t* menu)
             for (size_t i = 0; i < menu->count; ++i) {
                 if (i == sm_items.capacity) {
                     sm_items.capacity += 16;
-                    sm_items.items = realloc(sm_items.items, sizeof(sm_item_t) * sm_items.capacity);
+                    REALLOC_ASSERT(sm_items.items, sizeof(sm_item_t) * sm_items.capacity);
                 }
                 sm_items.items[i].cb = menu->cbs[i];
                 sm_items.items[i].user_data = menu->user_data[i];
@@ -667,7 +668,7 @@ void cc_color_selector(Clay_ImageElementConfig im, color_string_t* color)
             cpi.capacity = 8;
         }
         cpi.capacity *= 2;
-        cpi.items = realloc(cpi.items, sizeof(*cpi.items) * cpi.capacity);
+        REALLOC_ASSERT(cpi.items, sizeof(*cpi.items) * cpi.capacity);
         memset(&cpi.items[cpi.size], 0, sizeof(*cpi.items) * (cpi.capacity - cpi.size));
     }
     cpi.items[cpi.size].string = color;

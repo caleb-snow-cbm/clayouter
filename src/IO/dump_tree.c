@@ -113,7 +113,7 @@ static void dump_clay_floating(FILE* f, Clay_FloatingElementConfig* d)
     fprintf(f, "}, ");
 }
 
-void dump_clay_border(FILE* f, Clay_BorderElementConfig* d)
+static void dump_clay_border(FILE* f, Clay_BorderElementConfig* d)
 {
     fprintf(f, ".border = { ");
     if (IS_NON_ZERO(d->color)) {
@@ -209,7 +209,7 @@ static void dump_clay_text(FILE* f, Clay_String s, Clay_TextElementConfig* c)
     fprintf(f, "}));\n");
 }
 
-void dump_tree_r(FILE* f, ui_element_t* root, int depth)
+static void dump_tree_r(FILE* f, ui_element_t* root, int depth)
 {
     if (root->type == UI_ELEMENT_DECLARATION) {
         fprintf(f, "CLAY({");
