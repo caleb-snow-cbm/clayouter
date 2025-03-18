@@ -19,6 +19,7 @@
 
 typedef struct {
     ui_element_t* parent;
+    ui_element_t* me;
     stb_lexer* lexer;
     const char* filename;
 } parse_ctx_t;
@@ -517,6 +518,24 @@ static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* in
         *stringId = id.s;
         EXPECT_REQUIRED(ctx, ")");
         return true;
+    } else if (!strcmp(info->name, "Clay_Color")) {
+        const char* possible[] = { "(", "{", "Clay_Hovered" };
+        int token = expect_tokens(ctx, possible, numberof(possible));
+        if (token == 0) {
+            return parse_struct_literal(ctx, out, info);
+        } else if (token == 1) {
+            return parse_struct_by_members(ctx, out, info);
+        } else if (token == 2) {
+            EXPECT_REQUIRED(ctx, "(");
+            EXPECT_REQUIRED(ctx, ")");
+            EXPECT_REQUIRED(ctx, "?");
+            if(!parse_struct(ctx, (uint8_t*) &ctx->me->on_hover.hovered_color, info)) return false;
+            EXPECT_REQUIRED(ctx, ":");
+            if (!parse_struct(ctx, (uint8_t*) &ctx->me->on_hover.non_hovered_color, info)) return false;
+            *(Clay_Color*) out = ctx->me->on_hover.non_hovered_color;
+            ctx->me->on_hover.enabled = true;
+            return true;
+        }
     }
     return false;
 }
@@ -525,6 +544,7 @@ static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)
 {
     EXPECT_REQUIRED(ctx, "(");
     ui_element_t* me = (ui_element_t*) malloc(sizeof *me);
+    ctx->me = me;
     memset(me, 0, sizeof *me);
     me->ptr = (Clay_ElementDeclaration*) malloc(sizeof *me->ptr);
     memset(me->ptr, 0, sizeof *me->ptr);
