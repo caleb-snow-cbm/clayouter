@@ -159,7 +159,7 @@ static cc_selection_menu_t font_selection_menu = {
     .label = CLAY_STRING_CONST("Fonts")
 };
 
-void load_properties(void);
+static void load_properties(void);
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -167,7 +167,7 @@ void load_properties(void);
         cc_selection_item(*i->name, i->values, i->count, (uint8_t*) (value_ptr));                  \
     } while (0)
 
-void clay_error(Clay_ErrorData err)
+static void clay_error(Clay_ErrorData err)
 {
     fprintf(stderr, "CLAY ERROR: %d, %.*s\n", (int) err.errorType, (int) err.errorText.length,
         err.errorText.chars);
@@ -236,7 +236,7 @@ static char get_char_from_key(int key)
     }
 }
 
-void dynamic_string_copy(dstring_t* dst, Clay_String src)
+static void dynamic_string_copy(dstring_t* dst, Clay_String src)
 {
     if (dst->capacity <= src.length) {
         dst->capacity = src.length;
@@ -250,7 +250,7 @@ void dynamic_string_copy(dstring_t* dst, Clay_String src)
     dst->s.length = src.length;
 }
 
-void clay_string_copy(Clay_String* dst, dstring_t src)
+static void clay_string_copy(Clay_String* dst, dstring_t src)
 {
     if (src.s.length) {
         void* tmp = realloc((char*) dst->chars, src.s.length);
@@ -345,7 +345,7 @@ static adjustment_t get_adjust_type(Clay_Vector2 mouse_pos, Clay_BoundingBox ele
     return ADJUST_NONE;
 }
 
-void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     static adjustment_t adjustment;
     static ui_element_t* adjusted_element = NULL;
@@ -366,7 +366,7 @@ void hover_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data
     }
 }
 
-void toggle_bool(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void toggle_bool(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -375,7 +375,7 @@ void toggle_bool(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     }
 }
 
-void select_font_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void select_font_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
@@ -411,7 +411,7 @@ void select_font_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
     load_properties();
 }
 
-Clay_LayoutConfig save_layout(layout_properties_t* layout)
+static Clay_LayoutConfig save_layout(layout_properties_t* layout)
 {
     Clay_LayoutConfig ret = { 0 };
     ret.sizing.width.type = layout->sizing_width_type;
@@ -515,7 +515,7 @@ static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* s
         dynamic_string_copy(&dst->callback, src->callback);
 }
 
-Clay_TextElementConfig save_text_config(const text_properties_t* src)
+static Clay_TextElementConfig save_text_config(const text_properties_t* src)
 {
     Clay_TextElementConfig ret = { 0 };
     if (src->font_size.s.length)
@@ -538,7 +538,7 @@ Clay_TextElementConfig save_text_config(const text_properties_t* src)
     return ret;
 }
 
-Clay_CornerRadius save_corner_radius(const general_properties_t* src)
+static Clay_CornerRadius save_corner_radius(const general_properties_t* src)
 {
     Clay_CornerRadius ret = { 0 };
     if (src->corner_radius_top_left.s.length)
@@ -552,7 +552,7 @@ Clay_CornerRadius save_corner_radius(const general_properties_t* src)
     return ret;
 }
 
-Clay_FloatingElementConfig save_floating(const floating_properties_t* src)
+static Clay_FloatingElementConfig save_floating(const floating_properties_t* src)
 {
     Clay_FloatingElementConfig ret = { 0 };
     if (src->offset_x.s.length)
@@ -574,7 +574,7 @@ Clay_FloatingElementConfig save_floating(const floating_properties_t* src)
     return ret;
 }
 
-Clay_BorderElementConfig save_border(const border_properties_t* src)
+static Clay_BorderElementConfig save_border(const border_properties_t* src)
 {
     Clay_BorderElementConfig ret = { 0 };
     ret.color = cc_parse_color(&src->color);
@@ -592,14 +592,14 @@ Clay_BorderElementConfig save_border(const border_properties_t* src)
     return ret;
 }
 
-void save_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
+static void save_on_hover(on_hover_config_t* dst, const on_hover_properties_t* src)
 {
     clay_string_copy(&dst->callback, src->callback);
     dst->enabled = src->enable;
     dst->hovered_color = cc_parse_color(&src->color);
 }
 
-void save_properties(void)
+static void save_properties(void)
 {
     if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
         Clay_ElementDeclaration* element = selected_ui_element->ptr;
@@ -630,7 +630,7 @@ void save_properties(void)
     }
 }
 
-void load_properties(void)
+static void load_properties(void)
 {
     if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
         Clay_ElementDeclaration* element = selected_ui_element->ptr;
@@ -666,9 +666,7 @@ void load_properties(void)
     }
 }
 
-void save_default(void) { }
-
-void close_properties_window(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void close_properties_window(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     (void) user_data;
@@ -677,7 +675,7 @@ void close_properties_window(Clay_ElementId id, Clay_PointerData data, intptr_t 
     }
 }
 
-void open_parent(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void open_parent(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     (void) user_data;
@@ -690,7 +688,7 @@ void open_parent(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     }
 }
 
-void open_children(Clay_ElementId id, Clay_PointerData data, intptr_t user_data) {
+static void open_children(Clay_ElementId id, Clay_PointerData data, intptr_t user_data) {
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -698,7 +696,7 @@ void open_children(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     }
 }
 
-void general_properties_layout(void* user_data)
+static void general_properties_layout(void* user_data)
 {
     general_properties_t* p = &((declaration_properties_t*) user_data)->general;
     cc_text_box(&p->id, CLAY_STRING("ID"));
@@ -716,7 +714,7 @@ void general_properties_layout(void* user_data)
     cc_check_box(&p->scroll_vertical, CLAY_STRING("Scroll (vertical)"));
 }
 
-void layout_properties_layout(void* user_data)
+static void layout_properties_layout(void* user_data)
 {
     declaration_properties_t* p = (declaration_properties_t*) user_data;
     enum_selection_item(Clay__SizingType, &p->layout.sizing_width_type);
@@ -739,7 +737,7 @@ void layout_properties_layout(void* user_data)
     enum_selection_item(Clay_LayoutDirection, &p->layout.layout_direction);
 }
 
-void floating_properties_layout(void* user_data)
+static void floating_properties_layout(void* user_data)
 {
     floating_properties_t* p = &((declaration_properties_t*) user_data)->floating;
     CLAY_TEXT(CLAY_STRING("Offset"), HEADER_TEXT);
@@ -770,7 +768,7 @@ void floating_properties_layout(void* user_data)
     enum_selection_item(Clay_FloatingAttachToElement, &p->attach_to);
 }
 
-void border_properties_layout(void* user_data)
+static void border_properties_layout(void* user_data)
 {
     border_properties_t* p = &((declaration_properties_t*) user_data)->border;
     CLAY_TEXT(CLAY_STRING("Color"), HEADER_TEXT);
@@ -783,7 +781,7 @@ void border_properties_layout(void* user_data)
     cc_text_box(&p->between_children, CLAY_STRING("Between children"));
 }
 
-void on_hover_properties_layout(void* user_data)
+static void on_hover_properties_layout(void* user_data)
 {
     on_hover_properties_t* p = &((declaration_properties_t*)user_data)->on_hover;
     cc_check_box(&p->enable, CLAY_STRING("Enable"));
@@ -792,7 +790,7 @@ void on_hover_properties_layout(void* user_data)
     cc_text_box(&p->callback, CLAY_STRING("Callback function"));
 }
 
-void text_properties_layout(text_properties_t* p)
+static void text_properties_layout(text_properties_t* p)
 {
     CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
                .padding = CLAY_PADDING_ALL(4),
@@ -815,7 +813,7 @@ void text_properties_layout(text_properties_t* p)
     }
 }
 
-void properties_window(void)
+static void properties_window(void)
 {
     CLAY({
         .id = CLAY_ID("properties window"),
@@ -881,7 +879,7 @@ void properties_window(void)
     }
 }
 
-void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -892,7 +890,7 @@ void select_child_callback(Clay_ElementId id, Clay_PointerData data, intptr_t us
     }
 }
 
-void show_children(ui_element_t* e)
+static void show_children(ui_element_t* e)
 {
     static size_t child_capacity = 0;
     if (e->type == UI_ELEMENT_TEXT) return;
@@ -922,7 +920,7 @@ void show_children(ui_element_t* e)
     cc_selection_menu(&child_selection_menu);
 }
 
-void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -937,7 +935,7 @@ void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
     }
 }
 
-void insert_before_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void insert_before_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -947,7 +945,7 @@ void insert_before_callback(Clay_ElementId id, Clay_PointerData data, intptr_t u
     }
 }
 
-void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -957,7 +955,7 @@ void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_d
     }
 }
 
-void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
@@ -977,7 +975,7 @@ void import_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t 
     }
 }
 
-void remove_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void remove_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -987,7 +985,7 @@ void remove_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t 
     }
 }
 
-void properties_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void properties_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -997,7 +995,7 @@ void properties_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user
     }
 }
 
-void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     dstring_t* path = (dstring_t*) user_data;
@@ -1008,7 +1006,7 @@ void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
     }
 }
 
-void open_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void open_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -1016,7 +1014,7 @@ void open_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user
     }
 }
 
-void close_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+static void close_file_selection(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
 {
     (void) id;
     (void) user_data;
@@ -1039,7 +1037,7 @@ static void selection_box(void)
     });
 }
 
-void file_selection(on_hover_cb_t select_callback, Clay_String label)
+static void file_selection(on_hover_cb_t select_callback, Clay_String label)
 {
     static dstring_t path = { 0 };
     CLAY( { .id = CLAY_ID("import_selection"),
@@ -1061,7 +1059,7 @@ void file_selection(on_hover_cb_t select_callback, Clay_String label)
     }
 }
 
-void dropdown(ui_element_t* parent)
+static void dropdown(ui_element_t* parent)
 {
     CLAY(dropdown_menu)
     {
@@ -1078,7 +1076,7 @@ void dropdown(ui_element_t* parent)
     }
 }
 
-void configure_element(ui_element_t* me)
+static void configure_element(ui_element_t* me)
 {
     if (me == NULL) {
         return;
