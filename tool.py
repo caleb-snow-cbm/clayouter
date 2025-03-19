@@ -13,16 +13,15 @@ builtin_types['uint32_t'] = 'INTEGRAL'
 builtin_types['int8_t'] = 'INTEGRAL'
 builtin_types['int16_t'] = 'INTEGRAL'
 builtin_types['int32_t'] = 'INTEGRAL'
+builtin_types['void*'] = 'INTEGRAL'
 
 print('const char* _' + name + '_Members[] = {')
 for member in members:
     print('    \"' + member + '\",')
 print('};')
-print('DEFINE_STRUCT_MEMBER_COUNT(' + name + ');')
-print('static ' + name + ' _' + name + ';')
 print('const size_t _' + name + '_Sizes[] = {')
 for member in members:
-    print('    sizeof(_' + name + '.' + member + '),')
+    print('    sizeof(((' + name + '*) 0)->' + member + '),')
 print('};')
 print('const size_t _' + name + '_Offsets[] = {')
 for member in members:

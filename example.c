@@ -7,18 +7,21 @@ CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
                    .layoutDirection = CLAY_LEFT_TO_RIGHT, },
        .backgroundColor = (Clay_Color) { 45, 134, 100, 255 }, })
 {
-    CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_PERCENT(0.3f),
+    CLAY({ .layout = { .sizing = { .width  = CLAY_SIZING_PERCENT(0.3f),
                                    .height = CLAY_SIZING_GROW(0) },
                        .padding = CLAY_PADDING_ALL(8),
                        .childGap = 8,
                        .layoutDirection = CLAY_TOP_TO_BOTTOM },
            .backgroundColor = (Clay_Color) { 255, 255, 255, 255 },
-           .cornerRadius = CLAY_CORNER_RADIUS(16), })
+           .cornerRadius = CLAY_CORNER_RADIUS(16),
+           .border = { .color = Clay_Hovered() ? (Clay_Color) { 255,   0, 255, 255 }
+                                               : (Clay_Color) {   0,   0,   0, 255 },
+                       .width = CLAY_BORDER_OUTSIDE(2) } })
     {
         CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(0),
                                        .height = CLAY_SIZING_FIT(0) },
                            .padding = CLAY_PADDING_ALL(8), },
-               .backgroundColor = Clay_Hovered() ? { .r = 90, .g =220, .b=130,.a= 255 }
+               .backgroundColor = Clay_Hovered() ? (Clay_Color) { 90, 220, 130, 255 }
                                                  : (Clay_Color) { 45, 190, 100, 255 },
                .cornerRadius = CLAY_CORNER_RADIUS(8), })
         {
