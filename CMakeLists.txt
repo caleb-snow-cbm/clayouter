@@ -28,8 +28,8 @@ add_executable(${PROJECT_NAME}
     src/clay_struct_names.c
     src/ui_element.c
     src/components/clay_components.c
-    src/IO/dump_tree.c
-    src/IO/parse_tree.c
+    src/IO/import_layout.c
+    src/IO/export_layout.c
 )
 target_link_libraries(${PROJECT_NAME}
     clay

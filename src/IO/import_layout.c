@@ -30,10 +30,10 @@ static bool parse_integral(parse_ctx_t* ctx, uint8_t* out, uint8_t size);
 static bool parse_float(parse_ctx_t* ctx, float* out);
 static bool parse_string_literal(parse_ctx_t* ctx, dstring_t* s);
 static bool parse_enum(parse_ctx_t* ctx, uint8_t* out, const enum_info_t* info);
-static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
-static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
-static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
-static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info, size_t member_index);
+static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
+static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
+static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
+static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info, size_t member_index);
 static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool expect_token(parse_ctx_t* ctx, const char* token);
@@ -227,6 +227,42 @@ static bool clay_padding_all(parse_ctx_t* ctx, uint8_t* out)
     return true;
 }
 
+static bool clay_border_outside(parse_ctx_t* ctx, uint8_t* out)
+{
+    EXPECT_REQUIRED(ctx, "(");
+    int ret = stb_c_lexer_get_token(ctx->lexer);
+    if (!ret || ctx->lexer->token != CLEX_intlit) {
+        REPORT_FAILURE(ctx, "integer literal");
+        return false;
+    }
+    Clay_BorderWidth* border = (Clay_BorderWidth*) out;
+    border->top    = (uint16_t) ctx->lexer->int_number;
+    border->bottom = (uint16_t) ctx->lexer->int_number;
+    border->left   = (uint16_t) ctx->lexer->int_number;
+    border->right  = (uint16_t) ctx->lexer->int_number;
+    border->betweenChildren = 0;
+    EXPECT_REQUIRED(ctx, ")");
+    return true;
+}
+
+static bool clay_border_all(parse_ctx_t* ctx, uint8_t* out)
+{
+    EXPECT_REQUIRED(ctx, "(");
+    int ret = stb_c_lexer_get_token(ctx->lexer);
+    if (!ret || ctx->lexer->token != CLEX_intlit) {
+        REPORT_FAILURE(ctx, "integer literal");
+        return false;
+    }
+    Clay_BorderWidth* border = (Clay_BorderWidth*) out;
+    border->top             = (uint16_t) ctx->lexer->int_number;
+    border->bottom          = (uint16_t) ctx->lexer->int_number;
+    border->left            = (uint16_t) ctx->lexer->int_number;
+    border->right           = (uint16_t) ctx->lexer->int_number;
+    border->betweenChildren = (uint16_t) ctx->lexer->int_number;
+    EXPECT_REQUIRED(ctx, ")");
+    return true;
+}
+
 typedef struct {
     const char* macro;
     macro_handler_t handler;
@@ -240,6 +276,8 @@ const macro_t wrapper_macros[] = {
     { .macro = "CLAY_SIZING_PERCENT", .handler = clay_sizing_percent, .struct_info = STRUCT_INFO(Clay_SizingAxis)  },
     { .macro = "CLAY_PADDING_ALL",    .handler = clay_padding_all,    .struct_info = STRUCT_INFO(Clay_Padding) },
     { .macro = "CLAY_CORNER_RADIUS",  .handler = clay_corner_radius,  .struct_info = STRUCT_INFO(Clay_CornerRadius) },
+    { .macro = "CLAY_BORDER_OUTSIDE", .handler = clay_border_outside, .struct_info = STRUCT_INFO(Clay_BorderWidth) },
+    { .macro = "CLAY_BORDER_ALL",     .handler = clay_border_all,     .struct_info = STRUCT_INFO(Clay_BorderWidth) },
 };
 
 static bool parse_wrapping_macro(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
@@ -386,48 +424,74 @@ static bool parse_enum(parse_ctx_t* ctx, uint8_t* out, const enum_info_t* info)
     return false;
 }
 
-static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info, size_t member_index)
+static bool parse_value(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info, size_t member_index)
 {
+    if (out == NULL) {
+        out = on_hover_out;
+    }
     switch (info->info[member_index].type) {
-        case TYPE_BOOL:
-            if (!parse_bool(ctx, (bool*) out + info->offsets[member_index])) {
-                return false;
-            }
-            break;
-        case TYPE_INTEGRAL:
-            if (!parse_integral(ctx, out + info->offsets[member_index], info->sizes[member_index])) {
-                return false;
-            }
-            break;
-        case TYPE_FLOAT:
-            if (!parse_float(ctx, (float*) (out + info->offsets[member_index]))) {
-                return false;
-            }
-            break;
-        case TYPE_ENUM:
-            if (!parse_enum(ctx, out + info->offsets[member_index], info->info[member_index].enum_info)) {
-                return false;
-            }
-            break;
-        case TYPE_STRUCT:
-            if (!parse_struct(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
-                return false;
-            }
-            break;
-        case TYPE_UNION:
-            if (!parse_union(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
-                return false;
-            }
-            break;
-        case TYPE_CUSTOM:
-            if (!parse_custom(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
-                return false;
-            }
+    case TYPE_BOOL:
+        if (!parse_bool(ctx, (bool*) out + info->offsets[member_index])) {
+            return false;
         }
+        break;
+    case TYPE_INTEGRAL:
+        if (!parse_integral(ctx, out + info->offsets[member_index], info->sizes[member_index])) {
+            return false;
+        }
+        break;
+    case TYPE_FLOAT:
+        if (!parse_float(ctx, (float*) (out + info->offsets[member_index]))) {
+            return false;
+        }
+        break;
+    case TYPE_ENUM:
+        if (!parse_enum(ctx, out + info->offsets[member_index], info->info[member_index].enum_info)) {
+            return false;
+        }
+        break;
+    case TYPE_STRUCT:
+        if (!parse_struct(ctx,
+                          out + info->offsets[member_index],
+                          on_hover_out ? on_hover_out + info->offsets[member_index] : NULL,
+                          info->info[member_index].struct_info)) {
+            return false;
+        }
+        break;
+    case TYPE_UNION:
+        if (!parse_union(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
+            return false;
+        }
+        break;
+    case TYPE_CUSTOM:
+        if (!parse_custom(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
+            return false;
+        }
+    }
     return true;
 }
 
-static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
+static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info, size_t member_index)
+{
+    // Check for Clay_Hovered() ternary
+    char* prev_parse_point = ctx->lexer->parse_point;
+    if (expect_token(ctx, "Clay_Hovered")) {
+        ctx->me->on_hover.enabled = true;
+        EXPECT_REQUIRED(ctx, "(");
+        EXPECT_REQUIRED(ctx, ")");
+        EXPECT_REQUIRED(ctx, "?");
+        if (!parse_value(ctx, on_hover_out, NULL, info, member_index)) return false;
+        EXPECT_REQUIRED(ctx, ":");
+        return parse_value(ctx, out, NULL, info, member_index);
+    }
+    ctx->lexer->parse_point = prev_parse_point;
+    if (!parse_value(ctx, out, on_hover_out, info, member_index)) return false;
+    if (on_hover_out && info->info[member_index].type != TYPE_STRUCT)
+        memcpy(on_hover_out + info->offsets[member_index], out + info->offsets[member_index], info->sizes[member_index]);
+    return true;
+}
+
+static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
 {
     for (;;) {
         const char* possible[] = { ".", "}" };
@@ -440,7 +504,7 @@ next_field:
             for (size_t i = 0; i < info->count; ++i) {
                 if (!strcmp(ctx->lexer->string, info->members[i])) {
                     EXPECT_REQUIRED(ctx, "=");
-                    if (!parse_struct_member(ctx, out, info, i)) return false;
+                    if (!parse_struct_member(ctx, out, on_hover_out, info, i)) return false;
                     ret = stb_c_lexer_get_token(ctx->lexer);
                     if (!ret) return false;
                     if (ctx->lexer->token == ',') goto next_field;
@@ -457,7 +521,7 @@ next_field:
     }
 }
 
-static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
+static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
 {
     int ret = stb_c_lexer_get_token(ctx->lexer);
     if (!ret || ctx->lexer->token != CLEX_id) {
@@ -468,7 +532,7 @@ static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_in
     EXPECT_REQUIRED(ctx, "{");
     const char* possible[] = { ",", "}"} ;
     for (size_t i = 0; i < info->count; ++i) {
-        parse_struct_member(ctx, out, info, i);
+        parse_struct_member(ctx, out, on_hover_out, info, i);
         int next = expect_tokens(ctx, possible, numberof(possible));
         if (next == -1) return false;
         if (next == 0) continue;
@@ -478,7 +542,7 @@ static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, const struct_in
     return true;
 }
 
-static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
+static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
 {
     // EITHER
     // { .member = ... }
@@ -487,10 +551,14 @@ static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* in
     const char* struct_starters[] = { "{", "(" };
     int token = expect_tokens(ctx, struct_starters, numberof(struct_starters));
     if (token == 0) {
-        return parse_struct_by_members(ctx, out, info);
+        return parse_struct_by_members(ctx, out, on_hover_out, info);
     } else if (token == 1) {
-        return parse_struct_literal(ctx, out, info);
+        return parse_struct_literal(ctx, out, on_hover_out, info);
     } else if (parse_wrapping_macro(ctx, out, info)) {
+        if (on_hover_out) {
+            size_t total_size = info->offsets[info->count - 1] + info->sizes[info->count - 1];
+            memcpy(on_hover_out, out, total_size);
+        }
         return true;
     }
     // check for struct wrapping macro
@@ -519,24 +587,6 @@ static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* in
         *stringId = id.s;
         EXPECT_REQUIRED(ctx, ")");
         return true;
-    } else if (!strcmp(info->name, "Clay_Color")) {
-        const char* possible[] = { "(", "{", "Clay_Hovered" };
-        int token = expect_tokens(ctx, possible, numberof(possible));
-        if (token == 0) {
-            return parse_struct_literal(ctx, out, info);
-        } else if (token == 1) {
-            return parse_struct_by_members(ctx, out, info);
-        } else if (token == 2) {
-            EXPECT_REQUIRED(ctx, "(");
-            EXPECT_REQUIRED(ctx, ")");
-            EXPECT_REQUIRED(ctx, "?");
-            if(!parse_struct(ctx, (uint8_t*) &ctx->me->on_hover.hovered_color, info)) return false;
-            EXPECT_REQUIRED(ctx, ":");
-            if (!parse_struct(ctx, (uint8_t*) &ctx->me->on_hover.non_hovered_color, info)) return false;
-            *(Clay_Color*) out = ctx->me->on_hover.non_hovered_color;
-            ctx->me->on_hover.enabled = true;
-            return true;
-        }
     }
     return false;
 }
@@ -549,13 +599,18 @@ static ui_element_t* parse_element_declaration(parse_ctx_t* ctx)
     memset(me, 0, sizeof *me);
     me->ptr = (Clay_ElementDeclaration*) malloc_assert(sizeof *me->ptr);
     memset(me->ptr, 0, sizeof *me->ptr);
-    if (!parse_struct(ctx, (uint8_t*) me->ptr, STRUCT_INFO(Clay_ElementDeclaration))) goto fail;
-    me->on_hover.non_hovered_color = me->ptr->backgroundColor;
+    me->on_hover.ptr = (Clay_ElementDeclaration*) malloc_assert(sizeof *me->on_hover.ptr);
+    memset(me->on_hover.ptr, 0, sizeof *me->on_hover.ptr);
+    if (!parse_struct(ctx, (uint8_t*) me->ptr, (uint8_t*) me->on_hover.ptr, STRUCT_INFO(Clay_ElementDeclaration))) goto fail;
     EXPECT_REQUIRED(ctx, ")");
     const char* possible_after_decl[] = { "{", ";" };
     int next_token = expect_tokens(ctx, possible_after_decl, numberof(possible_after_decl));
     if (next_token == 1) return me;
     if (next_token == -1) goto fail;
+    if (!me->on_hover.enabled) {
+        free(me->on_hover.ptr);
+        me->on_hover.ptr = NULL;
+    }
     ui_element_t* child;
     ctx->parent = me;
     do {
@@ -589,7 +644,7 @@ static ui_element_t* parse_text(parse_ctx_t* ctx)
     EXPECT_REQUIRED(ctx, ",");
     EXPECT_REQUIRED(ctx, "CLAY_TEXT_CONFIG");
     EXPECT_REQUIRED(ctx, "(");
-    if (!parse_struct(ctx, (uint8_t*) me->text_config, STRUCT_INFO(Clay_TextElementConfig))) goto fail;
+    if (!parse_struct(ctx, (uint8_t*) me->text_config, NULL, STRUCT_INFO(Clay_TextElementConfig))) goto fail;
     EXPECT_REQUIRED(ctx, ")");
     return me;
 fail:
@@ -606,7 +661,6 @@ static bool parse_on_hover(parse_ctx_t* ctx)
         REPORT_FAILURE(ctx, "a parent element before calling Clay_OnHover");
         return false;
     }
-    bool prev = ctx->parent->on_hover.enabled;
     ctx->parent->on_hover.enabled = true;
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
@@ -617,10 +671,6 @@ static bool parse_on_hover(parse_ctx_t* ctx)
     ctx->parent->on_hover.callback.length = ctx->lexer->string_len;
     ctx->parent->on_hover.callback.chars = malloc_assert(ctx->lexer->string_len + 1);
     strcpy((char*) ctx->parent->on_hover.callback.chars, ctx->lexer->string);
-    if (!prev) {
-        ctx->parent->on_hover.hovered_color = ctx->parent->ptr->backgroundColor;
-        ctx->parent->on_hover.non_hovered_color = ctx->parent->ptr->backgroundColor;
-    }
     EXPECT_REQUIRED(ctx, ",");
     // ignore second argument by ignoring everything until ')'
     // this could obviously accept a lot of invalid syntax
@@ -674,7 +724,7 @@ fail:
     return NULL;
 }
 
-ui_element_t* parse_tree(const char* filename)
+ui_element_t* import_layout(const char* filename)
 {
     ui_element_t* head = NULL;
     char *file_data = NULL, *storage = NULL;

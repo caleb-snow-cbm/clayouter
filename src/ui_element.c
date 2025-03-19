@@ -73,6 +73,7 @@ void ui_element_remove(ui_element_t* me)
         free((char*) me->ptr->id.stringId.chars);
         free(me->ptr);
         free((char*) me->on_hover.callback.chars);
+        free(me->on_hover.ptr);
         size_t num_children = me->num_children;
         for (size_t i = 0; i < num_children; ++i) {
             // Child will shift other children back when

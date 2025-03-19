@@ -41,5 +41,6 @@ DECLARE_STRUCT_INFO(Clay_ElementDeclaration);
 DECLARE_STRUCT_INFO(Clay_SizingAxis);
 DECLARE_STRUCT_INFO(Clay_Padding);
 DECLARE_STRUCT_INFO(Clay_CornerRadius);
+DECLARE_STRUCT_INFO(Clay_BorderWidth);
 
 #endif // CLAY_STRUCT_NAMES_H

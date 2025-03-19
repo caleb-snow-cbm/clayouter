@@ -569,7 +569,7 @@ const size_t _Clay_ElementDeclaration_Offsets[] = {
 const member_info_t _Clay_ElementDeclaration_Member_Info[] = {
     { .type = TYPE_CUSTOM, .struct_info = &_Clay_ElementId_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_LayoutConfig_Info },
-    { .type = TYPE_CUSTOM, .struct_info = &_Clay_Color_Info },
+    { .type = TYPE_STRUCT, .struct_info = &_Clay_Color_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_CornerRadius_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_ImageElementConfig_Info },
     { .type = TYPE_STRUCT, .struct_info = &_Clay_FloatingElementConfig_Info },

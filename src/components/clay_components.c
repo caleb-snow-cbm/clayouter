@@ -445,7 +445,9 @@ void cc_text_box_append(dstring_t* text, char c)
         } else {
             text->capacity *= 2;
         }
-        REALLOC_ASSERT((char*) text->s.chars, (size_t) text->capacity);
+        char* out = (char*) text->s.chars;
+        REALLOC_ASSERT(out, (size_t) text->capacity);
+        text->s.chars = out;
         memset((char*) &text->s.chars[text->s.length], 0, (size_t) (text->capacity - text->s.length));
     }
     ((char*) text->s.chars)[text->s.length++] = c;

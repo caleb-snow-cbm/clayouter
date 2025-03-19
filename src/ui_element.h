@@ -15,8 +15,7 @@ typedef enum {
 typedef struct {
     bool enabled;
     Clay_String callback;
-    Clay_Color hovered_color;
-    Clay_Color non_hovered_color;
+    Clay_ElementDeclaration* ptr;
 } on_hover_config_t;
 
 typedef struct ui_element_s {

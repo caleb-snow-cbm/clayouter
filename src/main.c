@@ -14,8 +14,8 @@
 #include "clay_renderer_raylib.h"
 #include "components/clay_components.h"
 #include "ui_element.h"
-#include "IO/dump_tree.h"
-#include "IO/parse_tree.h"
+#include "IO/export_layout.h"
+#include "IO/import_layout.h"
 #include "utilities.h"
 
 #define WINDOW_WIDTH (1600)
@@ -73,9 +73,10 @@ typedef struct {
     dstring_t between_children;
 } border_properties_t;
 
+// TODO: give every parameter a hovered variant
 typedef struct {
     bool enable;
-    color_string_t color;
+    bool editing;
     dstring_t callback;
 } on_hover_properties_t;
 
@@ -153,6 +154,7 @@ static cc_selection_menu_t font_selection_menu = {
 };
 
 static void load_properties(void);
+static void save_properties(void);
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -404,6 +406,18 @@ static void select_font_callback(Clay_ElementId id, Clay_PointerData data, intpt
     load_properties();
 }
 
+static void toggle_edit_hovered(Clay_ElementId id, Clay_PointerData data, intptr_t user_data)
+{
+    (void) id;
+    if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        return;
+    }
+    save_properties();
+    bool* editing = (bool*) user_data;
+    *editing = !(*editing);
+    load_properties();
+}
+
 static Clay_LayoutConfig save_layout(layout_properties_t* layout)
 {
     Clay_LayoutConfig ret = { 0 };
@@ -437,7 +451,9 @@ static Clay_LayoutConfig save_layout(layout_properties_t* layout)
         int necessary_cap = snprintf(NULL, 0, format, (src));                                      \
         if ((dst).capacity < necessary_cap + 1) {                                                  \
             (dst).capacity = necessary_cap + 1;                                                    \
-            REALLOC_ASSERT((char*) (dst).s.chars, (dst).capacity + 1);                             \
+            void* tmp = realloc((char*) (dst).s.chars, (dst).capacity + 1);                        \
+            assert(tmp);                                                                           \
+            (dst).s.chars = tmp;                                                                   \
         }                                                                                          \
         (dst).s.length = sprintf((char*) (dst).s.chars, format, (src));                            \
     } while (0)
@@ -500,7 +516,6 @@ static void load_border(border_properties_t* dst, const Clay_BorderElementConfig
 
 static void load_on_hover(on_hover_properties_t* dst, const on_hover_config_t* src)
 {
-    load_color(&dst->color, src->hovered_color);
     dst->enable = src->enabled;
     if (src->callback.length)
         dynamic_string_copy(&dst->callback, src->callback);
@@ -587,13 +602,16 @@ static void save_on_hover(on_hover_config_t* dst, const on_hover_properties_t* s
 {
     clay_string_copy(&dst->callback, src->callback);
     dst->enabled = src->enable;
-    dst->hovered_color = cc_parse_color(&src->color);
 }
 
 static void save_properties(void)
 {
     if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
-        Clay_ElementDeclaration* element = selected_ui_element->ptr;
+        Clay_ElementDeclaration* element;
+        if (selected_ui_element->on_hover.ptr && selected_d_properties.on_hover.editing)
+            element = selected_ui_element->on_hover.ptr;
+        else
+            element = selected_ui_element->ptr;
 
         static int previous_length = 0;
         if (selected_d_properties.general.id.s.length
@@ -615,7 +633,6 @@ static void save_properties(void)
         element->scroll.vertical = selected_d_properties.general.scroll_vertical;
         element->border = save_border(&selected_d_properties.border);
         save_on_hover(&selected_ui_element->on_hover, &selected_d_properties.on_hover);
-        selected_ui_element->on_hover.non_hovered_color = element->backgroundColor;
     } else if (selected_ui_element->type == UI_ELEMENT_TEXT) {
         dynamic_string_copy(&selected_ui_element->text, selected_t_properties.text.s);
         *selected_ui_element->text_config = save_text_config(&selected_t_properties);
@@ -625,7 +642,11 @@ static void save_properties(void)
 static void load_properties(void)
 {
     if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
-        Clay_ElementDeclaration* element = selected_ui_element->ptr;
+        Clay_ElementDeclaration* element;
+        if (selected_ui_element->on_hover.ptr && selected_d_properties.on_hover.editing)
+            element = selected_ui_element->on_hover.ptr;
+        else
+            element = selected_ui_element->ptr;
         dynamic_string_copy(&selected_d_properties.general.id, element->id.stringId);
         load_layout(&selected_d_properties.layout, &element->layout);
         load_color(&selected_d_properties.general.background_color, element->backgroundColor);
@@ -775,10 +796,12 @@ static void border_properties_layout(void* user_data)
 
 static void on_hover_properties_layout(void* user_data)
 {
-    on_hover_properties_t* p = &((declaration_properties_t*)user_data)->on_hover;
+    on_hover_properties_t* p = &((declaration_properties_t*) user_data)->on_hover;
     cc_check_box(&p->enable, CLAY_STRING("Enable"));
+    cc_button(p->editing ? CLAY_STRING("Edit not hovered") : CLAY_STRING("Edit hovered"),
+              toggle_edit_hovered,
+              (intptr_t) &p->editing);
     CLAY_TEXT(CLAY_STRING("Hover color"), HEADER_TEXT);
-    cc_color_selector(color_picker_im, &p->color);
     cc_text_box(&p->callback, CLAY_STRING("Callback function"));
 }
 
@@ -952,7 +975,7 @@ static void import_element_callback(Clay_ElementId id, Clay_PointerData data, in
     (void) id;
     if (data.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
     dstring_t* path = (dstring_t*) user_data;
-    ui_element_t* tmp = parse_tree(path->s.chars);
+    ui_element_t* tmp = import_layout(path->s.chars);
     if (tmp) {
         ui_element_t* parent = dropdown_parent;
         parent->num_children++;
@@ -991,7 +1014,7 @@ static void dump_callback(Clay_ElementId id, Clay_PointerData data, intptr_t use
     (void) id;
     dstring_t* path = (dstring_t*) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        dump_tree(path->s.chars, root);
+        export_layout(path->s.chars, root);
         dropdown_parent = NULL;
         file_selection_visible = FSV_NONE;
     }
@@ -1074,12 +1097,17 @@ static void configure_element(ui_element_t* me)
     }
     if (me->type == UI_ELEMENT_DECLARATION) {
         Clay__OpenElement();
+        Clay_ElementDeclaration* declaration;
         if (me->on_hover.enabled && Clay_Hovered()) {
-            me->ptr->backgroundColor = me->on_hover.hovered_color;
+            if (me->on_hover.ptr == NULL) {
+                me->on_hover.ptr = malloc_assert(sizeof(*me->on_hover.ptr));
+                memcpy(me->on_hover.ptr, me->ptr, sizeof(*me->on_hover.ptr));
+            }
+            declaration = me->on_hover.ptr;
         } else {
-            me->ptr->backgroundColor = me->on_hover.non_hovered_color;
+            declaration = me->ptr;
         }
-        Clay__ConfigureOpenElement(*me->ptr);
+        Clay__ConfigureOpenElement(*declaration);
         Clay_OnHover(hover_callback, (intptr_t) me);
         if (dropdown_parent == me) {
             dropdown(me);
@@ -1162,7 +1190,7 @@ static void init_dropdown(void)
 
 int main(void)
 {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI /*| FLAG_MSAA_4X_HINT*/);
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Clayouter");
     SetTargetFPS(60);
     uint32_t clay_memory_size = Clay_MinMemorySize();
