@@ -6,7 +6,7 @@ CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
                    .childGap = 16,
                    .layoutDirection = CLAY_LEFT_TO_RIGHT, },
        .backgroundColor = (Clay_Color) { 45, 134, 100, 255 }, })
-{
+{ // C++ style comment
     CLAY({ .layout = { .sizing = { .width  = CLAY_SIZING_PERCENT(0.3f),
                                    .height = CLAY_SIZING_GROW(0) },
                        .padding = CLAY_PADDING_ALL(8),
@@ -18,6 +18,9 @@ CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
                                                : (Clay_Color) {   0,   0,   0, 255 },
                        .width = CLAY_BORDER_OUTSIDE(2) } })
     {
+        /*
+         * multi-line comment
+        */
         CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_FIT(0),
                                        .height = CLAY_SIZING_FIT(0) },
                            .padding = CLAY_PADDING_ALL(8), },
@@ -30,7 +33,7 @@ CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
                                    .fontId = 2,
                                    .textColor = (Clay_Color) { 0, 0, 0, 255 } }));
         }
-        CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
+        CLAY({ .layout = { .sizing = { /* inline comment */  .width = CLAY_SIZING_GROW(0),
                                        .height = CLAY_SIZING_FIT(0) },
                            .padding = CLAY_PADDING_ALL(8), },
                .backgroundColor = (Clay_Color) { 45, 190, 100, 255 },
