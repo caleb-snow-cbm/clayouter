@@ -47,6 +47,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name:  Install packages
+      run:   |
+             if [ "$RUNNER_OS" == "Linux" ]; then
+                  sudo apt install -y libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev             fi
+      shell: bash
+
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
