@@ -697,10 +697,10 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
     const char* possible[] = { "CLAY", "CLAY_TEXT", "Clay_OnHover", "}" };
     int token = expect_tokens(ctx, possible, numberof(possible));
     switch (token) {
-    case 0:
+    case 0: // CLAY
         me = parse_element_declaration(ctx);
         break;
-    case 1:
+    case 1: // CLAY_TEXT
         EXPECT_REQUIRED(ctx, "(");
         me = parse_text(ctx);
         if (!me)
@@ -708,10 +708,10 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
         EXPECT_REQUIRED(ctx, ")");
         EXPECT_REQUIRED(ctx, ";");
         break;
-    case 2:
+    case 2: // Clay_OnHover
         if (!parse_on_hover(ctx)) goto fail;
         return (void*) SIZE_MAX;
-    case 3:
+    case 3: // }
         return me;
     default:
         REPORT_FAILURE(ctx, "CLAY, CLAY_TEXT, Clay_OnHover, or }");

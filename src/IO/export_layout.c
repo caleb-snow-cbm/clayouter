@@ -258,7 +258,7 @@ static void export_layout_r(FILE* f, ui_element_t* root, int depth)
         fprintf(f, "CLAY({");
         export_clay_declaration(f, root);
         fprintf(f, "}) {\n");
-        if (root->on_hover.enabled) {
+        if (root->on_hover.enabled && root->on_hover.callback.length) {
             fprintf(f, "Clay_OnHover(%.*s, 0); // TODO: implement\n", root->on_hover.callback.length, root->on_hover.callback.chars);
         }
         for (size_t i = 0; i < root->num_children; ++i) {

@@ -155,6 +155,9 @@ static cc_selection_menu_t font_selection_menu = {
 
 static void load_properties(void);
 static void save_properties(void);
+static void remove_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data);
+static void add_element_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data);
+static void add_text_callback(Clay_ElementId id, Clay_PointerData data, intptr_t user_data);
 
 #define enum_selection_item(e, value_ptr)                                                          \
     do {                                                                                           \
@@ -549,12 +552,12 @@ static Clay_CornerRadius save_corner_radius(const general_properties_t* src)
     Clay_CornerRadius ret = { 0 };
     if (src->corner_radius_top_left.s.length)
         ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
-    if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
-    if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
-    if (src->corner_radius_top_left.s.length)
-        ret.topLeft = strtof(src->corner_radius_top_left.s.chars, NULL);
+    if (src->corner_radius_top_right.s.length)
+        ret.topRight = strtof(src->corner_radius_top_right.s.chars, NULL);
+    if (src->corner_radius_bottom_left.s.length)
+        ret.bottomLeft = strtof(src->corner_radius_bottom_left.s.chars, NULL);
+    if (src->corner_radius_bottom_right.s.length)
+        ret.bottomRight = strtof(src->corner_radius_bottom_right.s.chars, NULL);
     return ret;
 }
 
@@ -693,8 +696,8 @@ static void open_parent(Clay_ElementId id, Clay_PointerData data, intptr_t user_
     (void) id;
     (void) user_data;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        // if parent is not root
-        if (selected_ui_element->parent->parent) {
+        // if not root
+        if (selected_ui_element->parent) {
             selected_ui_element = selected_ui_element->parent;
             load_properties();
         }
@@ -845,7 +848,11 @@ static void properties_window(void)
         .border = { .color = theme->highlight, .width = CLAY_BORDER_OUTSIDE(1) },
     })
     {
-        CLAY_TEXT(CLAY_STRING("Properties"), TITLE_TEXT);
+        CLAY({ .layout.sizing.width = CLAY_SIZING_GROW(0) }) {
+            CLAY_TEXT(CLAY_STRING("Properties"), TITLE_TEXT);
+            CLAY({ .layout.sizing.width = CLAY_SIZING_PERCENT(0.75) }); // spacer
+            cc_button(CLAY_STRING("Close"), close_properties_window, 0);
+        }
 
         if (selected_ui_element->type == UI_ELEMENT_DECLARATION) {
             static Clay_String tab_names[] = {
@@ -884,12 +891,12 @@ static void properties_window(void)
 
         CLAY({ .layout = { .sizing.width = CLAY_SIZING_GROW(0), .childGap = 4 }})
         {
-            cc_button(CLAY_STRING("Close"), close_properties_window, 0);
-
+            cc_button(CLAY_STRING("Delete element"), remove_element_callback, (intptr_t) selected_ui_element);
             CLAY({ .layout.sizing.width = CLAY_SIZING_GROW(0) }); // spacer
             cc_button(CLAY_STRING("Open parent"), open_parent, 0);
             cc_button(CLAY_STRING("Open children"), open_children, 0);
-            // cc_button(CLAY_STRING("Save as Default"), save_default, 0);
+            cc_button(CLAY_STRING("Add text"), add_text_callback, (intptr_t) selected_ui_element);
+            cc_button(CLAY_STRING("Add child"), add_element_callback, (intptr_t) selected_ui_element);
         }
     }
 }
@@ -940,6 +947,7 @@ static void add_element_callback(Clay_ElementId id, Clay_PointerData data, intpt
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
         ui_element_t* parent = (ui_element_t*) user_data;
+        if (parent->type == UI_ELEMENT_TEXT) return;
         if (parent == dropdown_parent) {
             selected_ui_element = ui_element_insert_before(parent, NULL, UI_ELEMENT_DECLARATION);
         } else {
@@ -993,8 +1001,12 @@ static void remove_element_callback(Clay_ElementId id, Clay_PointerData data, in
 {
     (void) id;
     if (data.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        if ((ui_element_t*) user_data != root)
-            ui_element_remove((ui_element_t*) user_data);
+        ui_element_t* node = (ui_element_t*) user_data;
+        if (selected_ui_element == node) {
+            selected_ui_element = NULL;
+        }
+        if (node != root)
+            ui_element_remove(node);
         dropdown_parent = NULL;
     }
 }
