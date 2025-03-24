@@ -29,6 +29,7 @@ add_executable(${PROJECT_NAME}
     src/ui_element.c
     src/components/clay_components.c
     src/IO/import_layout.c
+    src/IO/import_preprocessor.c
     src/IO/export_layout.c
 )
 target_link_libraries(${PROJECT_NAME}

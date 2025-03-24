@@ -26,13 +26,15 @@ When you have finished building your page or component, right click and select "
 
 ### Import
 Clayouter is able to import layouts saved in files with some restrictions including:
-1. All values must be literals. No constant expressions, macros, etc.
+1. All values must be literals or macros. No `const` expressions. A basic preprocessor will replace `#define` staements, including those in `clay.h`.
 
-2. Only Clay syntax is accepted. No other inline C code such as `for` loops, functions, etc., are possible. The file should contain only the layout you wish to import. Preprocessor directives and comments are ignored.
+2. Only Clay syntax is accepted. No other inline C code such as `for` loops, functions, etc., are possible. The file should contain only the layout you wish to import.
 
-3. Ternary expressions are only available with `Clay_Hovered()` as the condition
+3. Ternary expressions are only available with `Clay_Hovered()` as the condition.
 
-The parser uses [stb_c_lexer](https://github.com/nothings/stb/blob/master/stb_c_lexer.h) to parse the input. `example.c` is an example of a file that is able to be imported.
+4. Preprocessor directives other than `#define` are ignored. `clay.h` is always included as a hard-coded path relative to the project root, otherwise `#include` statements will not work.
+
+The parser uses [stb_c_lexer](https://github.com/nothings/stb/blob/master/stb_c_lexer.h) to parse the input. `example.c` is an example of a file that is able to be imported. [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) is used for its hashmap.
 
 ### Fonts
 TrueType fonts can be added to the resources directory and will be available when building your UI. However, it is unlikely that the font IDs clayouter assigns your chosen fonts will be the same that you use in your application.
@@ -43,3 +45,4 @@ It uses the following external libraries:
 - [Clay](https://github.com/nicbarker/clay/) is used for UI layout, with a few minor modifications.
 - [Raylib](https://github.com/raysan5/raylib) is used as the renderer
 - [stb_c_lexer](https://github.com/nothings/stb/blob/master/stb_c_lexer.h) is used in the import feature
+- [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) is also used in the import feature

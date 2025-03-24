@@ -7,6 +7,7 @@
 
 #include "clay_enum_names.h"
 #include "clay_struct_names.h"
+#include "import_preprocessor.h"
 #include "ui_element.h"
 #include "utilities.h"
 
@@ -25,16 +26,17 @@ typedef struct {
     const char* filename;
 } parse_ctx_t;
 
+/*
 static bool parse_bool(parse_ctx_t* ctx, bool* out);
 static bool parse_integral(parse_ctx_t* ctx, uint8_t* out, uint8_t size);
 static bool parse_float(parse_ctx_t* ctx, float* out);
+*/
 static bool parse_string_literal(parse_ctx_t* ctx, dstring_t* s);
 static bool parse_enum(parse_ctx_t* ctx, uint8_t* out, const enum_info_t* info);
 static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
-static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
-static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
+static bool parse_struct_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
 static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info, size_t member_index);
-static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
+static bool parse_union(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info);
 static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info);
 static bool expect_token(parse_ctx_t* ctx, const char* token);
 
@@ -50,246 +52,23 @@ static int expect_tokens(parse_ctx_t* ctx, const char** tokens, int num_tokens);
 
 static ui_element_t* parse_tree_r(parse_ctx_t* ctx);
 
-#define REPORT_FAILURE(ctx, expected)                                                              \
-    do {                                                                                           \
-        stb_lex_location loc;                                                                      \
-        stb_c_lexer_get_location((ctx)->lexer, (ctx)->lexer->where_firstchar, &loc);               \
-        fprintf(stderr, "Unexpected token at %s:%d:%d\n", (ctx)->filename, loc.line_number,        \
-            loc.line_offset);                                                                      \
-        fprintf(stderr, "Expected %s\n", expected);                                                \
-    } while (0)
+void report_failure(parse_ctx_t* ctx, const char* expected)
+{
+    stb_lex_location loc;
+    stb_c_lexer_get_location((ctx)->lexer, (ctx)->lexer->where_firstchar, &loc);
+    fprintf(stderr, "Unexpected token at %s:%d:%d\n", (ctx)->filename, loc.line_number,
+        loc.line_offset);
+    fprintf(stderr, "Expected %s\n", expected);
+}
 
 #define EXPECT_REQUIRED(ctx, token)                                                                \
     do                                                                                             \
         if (!expect_token(ctx, token)) {                                                           \
-            REPORT_FAILURE(ctx, token);                                                            \
+            report_failure(ctx, token);                                                            \
+            assert(0);\
             return false;                                                                          \
         }                                                                                          \
     while (0)
-
-/* WRAPPER MACRO HANDLING */
-typedef bool (*macro_handler_t)(parse_ctx_t* ctx, uint8_t* out);
-
-static bool clay_sizing_fit(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_SizingAxis* sizing = (Clay_SizingAxis*) out;
-    sizing->type = CLAY__SIZING_TYPE_FIT;
-    sizing->size.minMax.max = 0;
-    if (ctx->lexer->token == CLEX_floatlit)
-        sizing->size.minMax.min = (float) ctx->lexer->real_number;
-    else
-        sizing->size.minMax.min = (float) ctx->lexer->int_number;
-    const char* possible[] = { ",", ")" };
-    int next = expect_tokens(ctx, possible, numberof(possible));
-    if (next == 1) {
-        return true;
-    } else if (next == -1) {
-        return false;
-    }
-
-    ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    if (ctx->lexer->token == CLEX_floatlit)
-        sizing->size.minMax.max = (float) ctx->lexer->real_number;
-    else
-        sizing->size.minMax.max = (float) ctx->lexer->int_number;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_sizing_grow(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_SizingAxis* sizing = (Clay_SizingAxis*) out;
-    sizing->type = CLAY__SIZING_TYPE_GROW;
-    sizing->size.minMax.max = 0;
-    if (ctx->lexer->token == CLEX_floatlit)
-        sizing->size.minMax.min = (float) ctx->lexer->real_number;
-    else
-        sizing->size.minMax.min = (float) ctx->lexer->int_number;
-    const char* possible[] = { ",", ")" };
-    int next = expect_tokens(ctx, possible, numberof(possible));
-    if (next == 1) {
-        return true;
-    } else if (next == -1) {
-        return false;
-    }
-
-    ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    if (ctx->lexer->token == CLEX_floatlit)
-        sizing->size.minMax.max = (float) ctx->lexer->real_number;
-    else
-        sizing->size.minMax.max = (float) ctx->lexer->int_number;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_sizing_fixed(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_SizingAxis* sizing = (Clay_SizingAxis*) out;
-    sizing->type = CLAY__SIZING_TYPE_FIXED;
-    sizing->size.minMax.max = 0;
-    if (ctx->lexer->token == CLEX_floatlit) {
-        sizing->size.minMax.min = (float) ctx->lexer->real_number;
-        sizing->size.minMax.max = (float) ctx->lexer->real_number;
-    } else {
-        sizing->size.minMax.min = (float) ctx->lexer->int_number;
-        sizing->size.minMax.max = (float) ctx->lexer->int_number;
-    }
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_sizing_percent(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_SizingAxis* sizing = (Clay_SizingAxis*) out;
-    sizing->type = CLAY__SIZING_TYPE_PERCENT;
-    sizing->size.minMax.max = 0;
-    if (ctx->lexer->token == CLEX_floatlit)
-        sizing->size.percent = (float) ctx->lexer->real_number;
-    else
-        sizing->size.percent = (float) ctx->lexer->real_number;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_corner_radius(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_CornerRadius* r = (Clay_CornerRadius*) out;
-    float value;
-    if (ctx->lexer->token == CLEX_floatlit)
-        value = (float) ctx->lexer->real_number;
-    else
-        value = (float) ctx->lexer->int_number;
-    r->topLeft = value;
-    r->topRight = value;
-    r->bottomLeft = value;
-    r->bottomRight = value;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_padding_all(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point or integer literal");
-        return false;
-    }
-    Clay_Padding* padding = (Clay_Padding*) out;
-    float value;
-    if (ctx->lexer->token == CLEX_floatlit)
-        value = (float) ctx->lexer->real_number;
-    else
-        value = (float) ctx->lexer->int_number;
-    padding->left   = (uint16_t) value;
-    padding->right  = (uint16_t) value;
-    padding->top    = (uint16_t) value;
-    padding->bottom = (uint16_t) value;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_border_outside(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || ctx->lexer->token != CLEX_intlit) {
-        REPORT_FAILURE(ctx, "integer literal");
-        return false;
-    }
-    Clay_BorderWidth* border = (Clay_BorderWidth*) out;
-    border->top    = (uint16_t) ctx->lexer->int_number;
-    border->bottom = (uint16_t) ctx->lexer->int_number;
-    border->left   = (uint16_t) ctx->lexer->int_number;
-    border->right  = (uint16_t) ctx->lexer->int_number;
-    border->betweenChildren = 0;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-static bool clay_border_all(parse_ctx_t* ctx, uint8_t* out)
-{
-    EXPECT_REQUIRED(ctx, "(");
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || ctx->lexer->token != CLEX_intlit) {
-        REPORT_FAILURE(ctx, "integer literal");
-        return false;
-    }
-    Clay_BorderWidth* border = (Clay_BorderWidth*) out;
-    border->top             = (uint16_t) ctx->lexer->int_number;
-    border->bottom          = (uint16_t) ctx->lexer->int_number;
-    border->left            = (uint16_t) ctx->lexer->int_number;
-    border->right           = (uint16_t) ctx->lexer->int_number;
-    border->betweenChildren = (uint16_t) ctx->lexer->int_number;
-    EXPECT_REQUIRED(ctx, ")");
-    return true;
-}
-
-typedef struct {
-    const char* macro;
-    macro_handler_t handler;
-    struct_info_t* struct_info;
-} macro_t;
-
-const macro_t wrapper_macros[] = {
-    { .macro = "CLAY_SIZING_FIT",     .handler = clay_sizing_fit,     .struct_info = STRUCT_INFO(Clay_SizingAxis) },
-    { .macro = "CLAY_SIZING_GROW",    .handler = clay_sizing_grow,    .struct_info = STRUCT_INFO(Clay_SizingAxis)  },
-    { .macro = "CLAY_SIZING_FIXED",   .handler = clay_sizing_fixed,   .struct_info = STRUCT_INFO(Clay_SizingAxis)  },
-    { .macro = "CLAY_SIZING_PERCENT", .handler = clay_sizing_percent, .struct_info = STRUCT_INFO(Clay_SizingAxis)  },
-    { .macro = "CLAY_PADDING_ALL",    .handler = clay_padding_all,    .struct_info = STRUCT_INFO(Clay_Padding) },
-    { .macro = "CLAY_CORNER_RADIUS",  .handler = clay_corner_radius,  .struct_info = STRUCT_INFO(Clay_CornerRadius) },
-    { .macro = "CLAY_BORDER_OUTSIDE", .handler = clay_border_outside, .struct_info = STRUCT_INFO(Clay_BorderWidth) },
-    { .macro = "CLAY_BORDER_ALL",     .handler = clay_border_all,     .struct_info = STRUCT_INFO(Clay_BorderWidth) },
-};
-
-static bool parse_wrapping_macro(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
-{
-    for (size_t i = 0; i < numberof(wrapper_macros); ++i) {
-        if (wrapper_macros[i].struct_info == info &&
-            strcmp(ctx->lexer->string, wrapper_macros[i].macro) == 0) {
-            return wrapper_macros[i].handler(ctx, out);
-        }
-    }
-    return false;
-}
 
 /***************************/
 
@@ -325,78 +104,283 @@ static bool expect_token(parse_ctx_t* ctx, const char* token)
     return strcmp(token, ctx->lexer->string) == 0;
 }
 
-static bool parse_bool(parse_ctx_t* ctx, bool* out)
+typedef enum {
+    VALUE_TYPE_BOOL,
+    VALUE_TYPE_INT,
+    VALUE_TYPE_FLOAT,
+} value_type_t;
+
+typedef enum {
+    OP_NONE,
+    OP_ADD,
+    OP_SUB,
+    OP_MULT,
+    OP_DIV
+} operation_t;
+
+typedef struct value_t {
+    value_type_t type;
+    union {
+        float    f;
+        int64_t  i;
+        bool     b;
+    };
+} value_t;
+
+void promote_to_float(value_t* v)
 {
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret) return false;
-    if (ctx->lexer->token == CLEX_intlit) {
-        *out = (bool) ctx->lexer->int_number;
-        return true;
-    } else if (ctx->lexer->token == CLEX_id) {
-        if (!strcmp(ctx->lexer->string, "true")) {
-            *out = true;
-            return true;
-        } else if (!strcmp(ctx->lexer->string, "false")) {
-            *out = false;
-            return true;
-        } else {
-            stb_lex_location loc;
-            stb_c_lexer_get_location(ctx->lexer, ctx->lexer->where_firstchar, &loc);
-            fprintf(stderr, "Unexpected token at %s:%d:%d\n", ctx->filename, loc.line_number,
-                loc.line_offset);
-            fprintf(stderr, "Expected bool\n");
-            return false;
-        }
+    switch (v->type) {
+        case VALUE_TYPE_BOOL:
+        v->f = (float) v->b;
+        break;
+        case VALUE_TYPE_INT:
+        v->f = (float) v->i;
+        break;
+        default: break;
     }
-    return false;
+    v->type = VALUE_TYPE_FLOAT;
 }
 
-static bool parse_integral(parse_ctx_t* ctx, uint8_t* out, uint8_t size)
+void value_invert_sign(value_t* v)
 {
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || ctx->lexer->token != CLEX_intlit) {
-        REPORT_FAILURE(ctx, "integer literal");
-        return false;
+    switch (v->type) {
+        case VALUE_TYPE_BOOL:
+        break;
+        case VALUE_TYPE_INT:
+        v->i = -v->i;
+        break;
+        case VALUE_TYPE_FLOAT:
+        v->f = -v->f;
+    }
+}
+
+value_t evaluate_simple_expression(value_t lhs, value_t rhs, operation_t op)
+{
+    value_t ret = { 0 };
+    if (lhs.type == VALUE_TYPE_FLOAT) {
+        promote_to_float(&rhs);
+    } else if (rhs.type == VALUE_TYPE_FLOAT) {
+        promote_to_float(&lhs);
+    }
+    switch (lhs.type) {
+        case VALUE_TYPE_BOOL:
+        case VALUE_TYPE_INT:
+        ret.type = VALUE_TYPE_INT;
+        switch (op) {
+            case OP_ADD:
+            ret.i = lhs.i + rhs.i;
+            break;
+            case OP_SUB:
+            ret.i = lhs.i - rhs.i;
+            break;
+            case OP_MULT:
+            ret.i = lhs.i * rhs.i;
+            break;
+            case OP_DIV:
+            ret.i = lhs.i / rhs.i;
+            break;
+            default: break;
+        }
+        break;
+        case VALUE_TYPE_FLOAT:
+        ret.type = VALUE_TYPE_FLOAT;
+        switch (op) {
+            case OP_ADD:
+            ret.f = lhs.f + rhs.f;
+            break;
+            case OP_SUB:
+            ret.f = lhs.f - rhs.f;
+            break;
+            case OP_MULT:
+            ret.f = lhs.f * rhs.f;
+            break;
+            case OP_DIV:
+            ret.f = lhs.f / rhs.f;
+            break;
+            default: break;
+        }
+        break;
+    }
+    return ret;
+}
+
+value_t evaluate_expression(parse_ctx_t* ctx, bool* done)
+{
+    value_t lhs = { 0 };
+    bool lhs_valid = false;
+    value_t rhs;
+    operation_t op = OP_NONE;
+    while (*done == false) {
+        char* before = ctx->lexer->parse_point;
+        if (!stb_c_lexer_get_token(ctx->lexer)) {
+            report_failure(ctx, "constant expression");
+            return lhs;
+        }
+        switch (ctx->lexer->token) {
+            case CLEX_intlit:
+                if (op == OP_NONE) {
+                    lhs.type = VALUE_TYPE_INT;
+                    lhs.i = ctx->lexer->int_number;
+                } else {
+                    rhs.type = VALUE_TYPE_INT;
+                    rhs.i = ctx->lexer->int_number;
+                    lhs = evaluate_simple_expression(lhs, rhs, op);
+                }
+                lhs_valid = true;
+                break;
+            case CLEX_floatlit:
+                if (op == OP_NONE) {
+                    lhs.type = VALUE_TYPE_FLOAT;
+                    lhs.f = (float) ctx->lexer->real_number;
+                } else {
+                    rhs.type = VALUE_TYPE_FLOAT;
+                    rhs.f = (float) ctx->lexer->real_number;
+                    lhs = evaluate_simple_expression(lhs, rhs, op);
+                }
+                lhs_valid = true;
+                break;
+            case '(':
+                if (op == OP_NONE) {
+                    if (lhs_valid) {
+                        report_failure(ctx, "math operator");
+                        return lhs;
+                    }
+                    lhs = evaluate_expression(ctx, done);
+                    break;
+                }
+                rhs = evaluate_expression(ctx, done);
+                if (ctx->lexer->token != ')') {
+                    report_failure(ctx, ")");
+                    return lhs;
+                }
+                lhs = evaluate_simple_expression(lhs, rhs, op);
+                lhs_valid = true;
+                break;
+            case ')':
+                if (!lhs_valid) {
+                    report_failure(ctx, "expression before )");
+                }
+                return lhs;
+            case '*':
+                op = OP_MULT;
+                break;
+            case '/':
+                op = OP_DIV;
+                break;
+            case '+':
+                op = OP_ADD;
+                rhs = evaluate_expression(ctx, done);
+                lhs = evaluate_simple_expression(lhs, rhs, op);
+                if (ctx->lexer->token == ')') return lhs;
+                lhs_valid = true;
+                break;
+            case '-':
+                if (!lhs_valid) {
+                    lhs.i = -1;
+                    lhs.type = VALUE_TYPE_INT;
+                    lhs_valid = true;
+                    op = OP_MULT;
+                    break;
+                }
+                rhs = evaluate_expression(ctx, done);
+                value_invert_sign(&rhs);
+                lhs = evaluate_simple_expression(lhs, rhs, OP_ADD);
+                lhs_valid = true;
+                break;
+            default:
+                *done = true;
+                ctx->lexer->parse_point = before;
+                return lhs;
+        }
+    }
+    return lhs;
+}
+
+static void write_bool(bool* out, value_t v)
+{
+    switch (v.type) {
+    case VALUE_TYPE_BOOL:
+        *out = v.b;
+        break;
+    case VALUE_TYPE_INT:
+        *out = (bool) v.i;
+        break;
+    case VALUE_TYPE_FLOAT:
+        *out = (bool) v.f;
+        break;
+    }
+}
+
+static void write_integral(uint8_t* out, size_t size, value_t v)
+{
+    int64_t tmp;
+    switch (v.type) {
+    case VALUE_TYPE_BOOL:
+        tmp = v.b;
+        break;
+    case VALUE_TYPE_INT:
+        tmp = v.i;
+        break;
+    case VALUE_TYPE_FLOAT:
+        tmp = (int64_t) v.f;
+        break;
     }
     switch (size) {
     case 1:
-        *out = (uint8_t) ctx->lexer->int_number;
+        *out = (uint8_t) tmp;
         break;
     case 2:
-        *((uint16_t*) out) = (uint16_t) ctx->lexer->int_number;
+        *(uint16_t*) out = (uint16_t) tmp;
         break;
     case 4:
-        *((uint32_t*) out) = (uint32_t) ctx->lexer->int_number;
+        *(uint32_t*) out = (uint32_t) tmp;
         break;
     case 8:
-        *((uint64_t*) out) = (uint64_t) ctx->lexer->int_number;
+        *(uint64_t*) out = tmp;
         break;
     default:
-        fprintf(stderr, "Invalid integer size to parse\n");
-        return false;
+        fprintf(stderr, "Invalid integer size %zu\n", size);
+        break;
     }
-    return true;
 }
 
-static bool parse_float(parse_ctx_t* ctx, float* out)
+static void write_float(float* out, value_t v)
 {
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || (ctx->lexer->token != CLEX_floatlit && ctx->lexer->token != CLEX_intlit)) {
-        REPORT_FAILURE(ctx, "floating point literal");
-        return false;
+    switch (v.type) {
+    case VALUE_TYPE_BOOL:
+        *out = (float) v.b;
+        break;
+    case VALUE_TYPE_INT:
+        *out = (float) v.i;
+        break;
+    case VALUE_TYPE_FLOAT:
+        *out = v.f;
+        break;
     }
-    if (ctx->lexer->token == CLEX_floatlit)
-        *out = (float) ctx->lexer->real_number;
-    else
-        *out = (float) ctx->lexer->int_number;
-    return true;
+}
+
+static void write_value(uint8_t* out, type_t expected_type, size_t size, value_t v)
+{
+    switch (expected_type) {
+    case TYPE_BOOL:
+        write_bool((bool*) out, v);
+        break;
+    case TYPE_INTEGRAL:
+        write_integral(out, size, v);
+        break;
+    case TYPE_FLOAT:
+        write_float((float*) out, v);
+        break;
+    default:
+        fprintf(stderr, "unexpecteded type in write_value()\n");
+    }
 }
 
 static bool parse_string_literal(parse_ctx_t* ctx, dstring_t* s)
 {
     int ret = stb_c_lexer_get_token(ctx->lexer);
     if (!ret || ctx->lexer->token != CLEX_dqstring) {
-        REPORT_FAILURE(ctx, "string literal");
+        report_failure(ctx, "string literal");
         return false;
     }
     if (s->capacity < ctx->lexer->string_len) {
@@ -429,21 +413,14 @@ static bool parse_value(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, c
     if (out == NULL) {
         out = on_hover_out;
     }
+    value_t v;
+    bool done = false;
     switch (info->info[member_index].type) {
     case TYPE_BOOL:
-        if (!parse_bool(ctx, (bool*) out + info->offsets[member_index])) {
-            return false;
-        }
-        break;
     case TYPE_INTEGRAL:
-        if (!parse_integral(ctx, out + info->offsets[member_index], info->sizes[member_index])) {
-            return false;
-        }
-        break;
     case TYPE_FLOAT:
-        if (!parse_float(ctx, (float*) (out + info->offsets[member_index]))) {
-            return false;
-        }
+        v = evaluate_expression(ctx, &done);
+        write_value(out + info->offsets[member_index], info->info[member_index].type, info->sizes[member_index], v);
         break;
     case TYPE_ENUM:
         if (!parse_enum(ctx, out + info->offsets[member_index], info->info[member_index].enum_info)) {
@@ -459,7 +436,10 @@ static bool parse_value(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, c
         }
         break;
     case TYPE_UNION:
-        if (!parse_union(ctx, out + info->offsets[member_index], info->info[member_index].struct_info)) {
+        if (!parse_union(ctx,
+                         out + info->offsets[member_index],
+                         on_hover_out ? on_hover_out + info->offsets[member_index] : NULL,
+                         info->info[member_index].struct_info)) {
             return false;
         }
         break;
@@ -485,60 +465,65 @@ static bool parse_struct_member(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hove
         return parse_value(ctx, out, NULL, info, member_index);
     }
     ctx->lexer->parse_point = prev_parse_point;
-    if (!parse_value(ctx, out, on_hover_out, info, member_index)) return false;
+    if (!parse_value(ctx, out, on_hover_out, info, member_index)) {
+        return false;
+    }
     if (on_hover_out && info->info[member_index].type != TYPE_STRUCT)
         memcpy(on_hover_out + info->offsets[member_index], out + info->offsets[member_index], info->sizes[member_index]);
     return true;
 }
 
-static bool parse_struct_by_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
+static bool parse_struct_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
 {
-    for (;;) {
-        const char* possible[] = { ".", "}" };
-        int token;
-next_field:
-        token = expect_tokens(ctx, possible, numberof(possible));
-        if (token == 0) {
-            int ret = stb_c_lexer_get_token(ctx->lexer);
-            if (!ret || ctx->lexer->token != CLEX_id) return false;
-            for (size_t i = 0; i < info->count; ++i) {
-                if (!strcmp(ctx->lexer->string, info->members[i])) {
-                    EXPECT_REQUIRED(ctx, "=");
-                    if (!parse_struct_member(ctx, out, on_hover_out, info, i)) return false;
-                    ret = stb_c_lexer_get_token(ctx->lexer);
-                    if (!ret) return false;
-                    if (ctx->lexer->token == ',') goto next_field;
-                    if (ctx->lexer->token == '}') return true;
-                    REPORT_FAILURE(ctx, ", or }");
+    int braces = 1;
+    for (size_t i = 0; i < info->count; ++i) {
+        char* before = ctx->lexer->parse_point;
+        for (stb_c_lexer_get_token(ctx->lexer); ctx->lexer->token == '{'; ++braces) {
+            before = ctx->lexer->parse_point;
+            if (!stb_c_lexer_get_token(ctx->lexer)) {
+                report_failure(ctx, info->members[i]);
+                return false;
+            }
+        }
+        if (ctx->lexer->token == '}') {
+            --braces;
+            break;
+        }
+        if (ctx->lexer->token == '.') {
+            // adjust i to member given
+            if (!stb_c_lexer_get_token(ctx->lexer)) {
+                report_failure(ctx, "struct member before EOF");
+                return false;
+            }
+            bool found = false;
+            for (size_t j = 0; j < info->count; ++j) {
+                if (!strcmp(info->members[j], ctx->lexer->string)) {
+                    found = true;
+                    i = j;
+                    break;
                 }
             }
-            return false;
-        } else if (token == 1) {
-            return true;
+            if (!found) {
+                report_failure(ctx, "struct member name");
+            }
+            EXPECT_REQUIRED(ctx, "=");
         } else {
+            ctx->lexer->parse_point = before;
+        }
+        if (!parse_struct_member(ctx, out, on_hover_out, info, i)) {
             return false;
         }
+        if (!stb_c_lexer_get_token(ctx->lexer)) return false;
+        if (ctx->lexer->token == ',') continue;
+        if (ctx->lexer->token == '}') {
+            --braces;
+            break;
+        }
+        report_failure(ctx, ", or } in struct definition");
     }
-}
-
-static bool parse_struct_literal(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
-{
-    int ret = stb_c_lexer_get_token(ctx->lexer);
-    if (!ret || ctx->lexer->token != CLEX_id) {
-        REPORT_FAILURE(ctx, info->name);
-        return false;
-    }
-    EXPECT_REQUIRED(ctx, ")");
-    EXPECT_REQUIRED(ctx, "{");
-    const char* possible[] = { ",", "}"} ;
-    for (size_t i = 0; i < info->count; ++i) {
-        parse_struct_member(ctx, out, on_hover_out, info, i);
-        int next = expect_tokens(ctx, possible, numberof(possible));
-        if (next == -1) return false;
-        if (next == 0) continue;
-        return true;
-    }
-    EXPECT_REQUIRED(ctx, "}");
+    assert(braces >= 0);
+    for (; braces; --braces)
+        EXPECT_REQUIRED(ctx, "}");
     return true;
 }
 
@@ -551,29 +536,90 @@ static bool parse_struct(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, 
     const char* struct_starters[] = { "{", "(" };
     int token = expect_tokens(ctx, struct_starters, numberof(struct_starters));
     if (token == 0) {
-        return parse_struct_by_members(ctx, out, on_hover_out, info);
+        return parse_struct_members(ctx, out, on_hover_out, info);
     } else if (token == 1) {
-        return parse_struct_literal(ctx, out, on_hover_out, info);
-    } else if (parse_wrapping_macro(ctx, out, info)) {
-        if (on_hover_out) {
-            size_t total_size = info->offsets[info->count - 1] + info->sizes[info->count - 1];
-            memcpy(on_hover_out, out, total_size);
+        int parens = 0;
+        while (ctx->lexer->token == '(') {
+            int ret = stb_c_lexer_get_token(ctx->lexer);
+            if (!ret || (ctx->lexer->token == CLEX_id &&
+                        strcmp(info->name, ctx->lexer->string))) {
+                report_failure(ctx, info->name);
+                return false;
+            } else if (ctx->lexer->token == '(') {
+                ++parens;
+            }
         }
+        EXPECT_REQUIRED(ctx, ")");
+        EXPECT_REQUIRED(ctx, "{");
+        if (!parse_struct_members(ctx, out, on_hover_out, info)) return false;
+        for (; parens; --parens)
+            EXPECT_REQUIRED(ctx, ")");
         return true;
     }
-    // check for struct wrapping macro
-    REPORT_FAILURE(ctx, "{ or (");
+    report_failure(ctx, "{ or ( for struct definition");
     return false;
 }
 
-static bool parse_union(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
+static bool parse_union_by_members(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
 {
-    EXPECT_REQUIRED(ctx, "{");
-    assert(0 && "unimplemented");
-    (void) out;
-    (void) info;
-    EXPECT_REQUIRED(ctx, "}");
-    return true;
+    char* prev = ctx->lexer->parse_point;
+    if (!stb_c_lexer_get_token(ctx->lexer)) {
+        report_failure(ctx, "union member");
+        return false;
+    }
+    if (ctx->lexer->token == '.') {
+        int ret = stb_c_lexer_get_token(ctx->lexer);
+        if (!ret || ctx->lexer->token != CLEX_id) return false;
+        for (size_t i = 0; i < info->count; ++i) {
+            if (!strcmp(ctx->lexer->string, info->members[i])) {
+                EXPECT_REQUIRED(ctx, "=");
+                if (!parse_struct_member(ctx, out, on_hover_out, info, i)) return false;
+                ret = stb_c_lexer_get_token(ctx->lexer);
+                if (!ret) return false;
+                if (ctx->lexer->token == ',') {
+                    report_failure(ctx, "}, initialing subobjects of unions is not supported");
+                    return false;
+                }
+                if (ctx->lexer->token == '}') return true;
+                report_failure(ctx, "}");
+            }
+        }
+        return false;
+    }
+    ctx->lexer->parse_point = prev;
+    // do something else
+    return false;
+}
+
+static bool parse_union_literal(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
+{
+    char* prev = ctx->lexer->parse_point;
+    int ret = stb_c_lexer_get_token(ctx->lexer);
+    if (!ret || ctx->lexer->token != CLEX_id) {
+        report_failure(ctx, "type of union member");
+        return false;
+    }
+    for (size_t i = 0; i < info->count; ++i) {
+        if (!strcmp(ctx->lexer->string, info->members[i])) {
+            ctx->lexer->parse_point = prev;
+            return parse_struct(ctx, out, on_hover_out, info->info[i].struct_info);
+        }
+    }
+    report_failure(ctx, "type of union member");
+    return false;
+}
+
+static bool parse_union(parse_ctx_t* ctx, uint8_t* out, uint8_t* on_hover_out, const struct_info_t* info)
+{
+    const char* possible[] = { "{", "(" };
+    int token = expect_tokens(ctx, possible, numberof(possible));
+    if (token == 0) {
+        return parse_union_by_members(ctx, out, on_hover_out, info);
+    } else if (token == 1) {
+        return parse_union_literal(ctx, out, on_hover_out, info);
+    }
+    report_failure(ctx, "{ or ( for union definition");
+    return false;
 }
 
 static bool parse_custom(parse_ctx_t* ctx, uint8_t* out, const struct_info_t* info)
@@ -658,14 +704,14 @@ fail:
 static bool parse_on_hover(parse_ctx_t* ctx)
 {
     if (ctx->parent == NULL) {
-        REPORT_FAILURE(ctx, "a parent element before calling Clay_OnHover");
+        report_failure(ctx, "a parent element before calling Clay_OnHover");
         return false;
     }
     ctx->parent->on_hover.enabled = true;
     EXPECT_REQUIRED(ctx, "(");
     int ret = stb_c_lexer_get_token(ctx->lexer);
     if (!ret || ctx->lexer->token != CLEX_id) {
-        REPORT_FAILURE(ctx, "callback function");
+        report_failure(ctx, "callback function");
         return false;
     }
     ctx->parent->on_hover.callback.length = ctx->lexer->string_len;
@@ -678,7 +724,7 @@ static bool parse_on_hover(parse_ctx_t* ctx)
     do {
         ret = stb_c_lexer_get_token(ctx->lexer);
         if (!ret) {
-            REPORT_FAILURE(ctx, ")");
+            report_failure(ctx, ")");
             return false;
         }
         if (ctx->lexer->token == '(') {
@@ -714,7 +760,7 @@ static ui_element_t* parse_tree_r(parse_ctx_t* ctx)
     case 3: // }
         return me;
     default:
-        REPORT_FAILURE(ctx, "CLAY, CLAY_TEXT, Clay_OnHover, or }");
+        report_failure(ctx, "CLAY, CLAY_TEXT, Clay_OnHover, }, or #");
         goto fail;
     }
     return me;
@@ -727,35 +773,16 @@ fail:
 ui_element_t* import_layout(const char* filename)
 {
     ui_element_t* head = NULL;
-    char *file_data = NULL, *storage = NULL;
-    FILE* f = fopen(filename, "rb");
-    if (f == NULL) {
-        fprintf(stderr, "Unable to open %s\n", filename);
-        goto cleanup;
-    }
-    fseek(f, 0, SEEK_END);
-    int64_t size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    assert(size >= 0);
-    file_data = (char*) malloc(size);
-    storage = (char*) malloc(size);
-    if (!file_data || !storage) {
-        fprintf(stderr, "Unable to allocate memory for file data\n");
-        goto cleanup;
-    }
-    if (fread(file_data, 1, size, f) != (size_t) size) {
-        fprintf(stderr, "Unable to read %" PRId64 " bytes from file %s\n", size, filename);
-        goto cleanup;
-    }
+    char *file_data;
     stb_lexer lexer = { 0 };
-    stb_c_lexer_init(&lexer, file_data, file_data + size, storage, size);
+    int64_t size;
 
     parse_ctx_t ctx = { .parent = NULL, .lexer = &lexer, .filename = filename };
+    // First pass replaces macros
+    if (!replace_macros(filename, &lexer, &file_data, &size)) return head;
     head = parse_tree_r(&ctx);
 
-cleanup:
     free(file_data);
-    free(storage);
-    if (f) fclose(f);
+    free(lexer.string_storage);
     return head;
 }
