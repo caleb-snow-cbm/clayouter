@@ -439,7 +439,7 @@ void cc_text_box_append(dstring_t* text, char c)
         }
         return;
     }
-    if (text->s.length == text->capacity) {
+    if (text->s.length + 1 >= text->capacity) {
         if (text->capacity == 0) {
             text->capacity = 16;
         } else {
@@ -451,6 +451,7 @@ void cc_text_box_append(dstring_t* text, char c)
         memset((char*) &text->s.chars[text->s.length], 0, (size_t) (text->capacity - text->s.length));
     }
     ((char*) text->s.chars)[text->s.length++] = c;
+    ((char*) text->s.chars)[text->s.length] = '\0';
 }
 
 dstring_t* cc_get_selected_text_box(void) { return selected_text_box; }
