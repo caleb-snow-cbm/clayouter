@@ -259,24 +259,18 @@ static void clay_string_copy(Clay_String* dst, dstring_t src)
     }
 }
 
-static void adjust_element(ui_element_t* element,
-                           Clay_ElementData data,
-                           adjustment_t adjustment,
-                           Clay_Vector2 pos)
+static void adjust_element_(Clay_ElementDeclaration* element,
+                            Clay_ElementData data,
+                            adjustment_t adjustment,
+                            Clay_Vector2 pos)
 {
-    Clay_Sizing* sizing = &element->ptr->layout.sizing;
-    Clay_Vector2 sixteenth =  { .x = data.boundingBox.width / 16,
-                                .y = data.boundingBox.height / 16 };
+    Clay_Sizing* sizing = &element->layout.sizing;
+    Clay_Vector2 sixteenth = { .x = data.boundingBox.width / 16,
+                               .y = data.boundingBox.height / 16 };
     Clay_Vector2 deviation = { 0 };
     switch (adjustment) {
     case ADJUST_LEFT:
-        if (element->parent == NULL ||
-            element->parent->ptr->layout.layoutDirection == CLAY_LEFT_TO_RIGHT ||
-            sizing->width.type == CLAY__SIZING_TYPE_FIT) {
-            return;
-        }
-        deviation.x = (data.boundingBox.x + sixteenth.x) - pos.x;
-        break;
+        return;
     case ADJUST_RIGHT:
         deviation.x = pos.x - (data.boundingBox.x + data.boundingBox.width - sixteenth.x);
         if (sizing->width.type == CLAY__SIZING_TYPE_FIT) {
@@ -308,16 +302,28 @@ static void adjust_element(ui_element_t* element,
         }
         break;
     case ADJUST_POSITION:
-        if (element->ptr->floating.attachTo == CLAY_ATTACH_TO_NONE) {
+        if (element->floating.attachTo == CLAY_ATTACH_TO_NONE) {
             return;
         }
         Vector2 center = { .x = data.boundingBox.x + (data.boundingBox.width / 2),
-                           .y = data.boundingBox.y + (data.boundingBox.height / 2) };
+            .y = data.boundingBox.y + (data.boundingBox.height / 2) };
         deviation.x = pos.x - center.x;
         deviation.y = pos.y - center.y;
-        element->ptr->floating.offset.x += deviation.x;
-        element->ptr->floating.offset.y += deviation.y;
-    default: break;
+        element->floating.offset.x += deviation.x;
+        element->floating.offset.y += deviation.y;
+    default:
+        break;
+    }
+}
+
+static void adjust_element(ui_element_t* element,
+                           Clay_ElementData data,
+                           adjustment_t adjustment,
+                           Clay_Vector2 pos)
+{
+    adjust_element_(element->ptr, data, adjustment, pos);
+    if (element->on_hover.ptr) {
+        adjust_element_(element->on_hover.ptr, data, adjustment, pos);
     }
 }
 
